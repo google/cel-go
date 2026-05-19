@@ -194,6 +194,10 @@ of the parent rule (otherwise, it would leave subsequent matches unreachable).
 Example:
 
 ```
+# Policy is a string (not wrapped)
+# input -> output
+# 3 -> 'b'
+# 2 -> 'c'
 rule:
   match:
     - rule:
@@ -201,9 +205,9 @@ rule:
         - name: "foo"
           value: 1 + 2
       match:
-        - condition: "input.foo > variables.foo"
+        - condition: "input > variables.foo"
           output: '"a"'
-        - condition: "input.foo == variables.foo"
+        - condition: "input == variables.foo"
           output: '"b"'
     - output: '"c"'
 

@@ -224,6 +224,13 @@ var (
 	((x > @index0) ? optional.of("a") : ((x == @index0) ? optional.of("b") : optional.none()))
 	  .or((x == 1) ? optional.of("c") : optional.none()))`,
 		},
+		{
+			name: "nested_rules_unwrap_rewrap",
+			expr: `
+	(x == 1)
+	  ? optional.of(((y == 1) ? optional.of("a") : optional.none()).orValue("b"))
+	  : optional.none()`,
+		},
 	}
 
 	composerUnnestTests = []struct {

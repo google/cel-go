@@ -398,6 +398,9 @@ func (r *runner) run(t *testing.T) {
 				} else if tc.Output.Value != nil {
 					testOut = r.env.CELTypeAdapter().NativeToValue(tc.Output.Value)
 				}
+				if testOut.Equal(out) == types.True {
+					return
+				}
 				if optOut, ok := out.(*types.Optional); ok {
 					if optOut.Equal(types.OptionalNone) == types.True {
 						if testOut.Equal(types.OptionalNone) != types.True {
@@ -406,7 +409,7 @@ func (r *runner) run(t *testing.T) {
 					} else if testOut.Equal(optOut.GetValue()) != types.True {
 						t.Errorf("policy eval got %v, wanted %v", out, testOut)
 					}
-				} else if testOut.Equal(out) != types.True {
+				} else {
 					t.Errorf("policy eval got %v, wanted %v", out, testOut)
 				}
 			})

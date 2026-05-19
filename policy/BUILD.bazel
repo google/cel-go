@@ -250,6 +250,16 @@ cel_go_test(
     test_suite = "testdata/nested_rules_unconditional_chaining_optional/tests.yaml",
 )
 
+cel_go_test(
+    name = "nested_rules_unwrap_rewrap_policy",
+    cel_expr = "testdata/nested_rules_unwrap_rewrap/policy.yaml",
+    config = "testdata/nested_rules_unwrap_rewrap/config.yaml",
+    enable_coverage = True,
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rules_unwrap_rewrap/tests.yaml",
+)
+
+
 
 
 cel_go_test(
