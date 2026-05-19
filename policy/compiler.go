@@ -72,12 +72,15 @@ func (r *CompiledRule) HasOptionalOutput() bool {
 	optionalOutput := false
 	for _, m := range r.Matches() {
 		if m.NestedRule() != nil && m.NestedRule().HasOptionalOutput() {
-			return true
-		}
-		if m.ConditionIsLiteral(types.True) {
+		  if !m.ConditionIsLiteral(types.True) {
+				return true
+			}
+			optionalOutput = true
+		} else if m.ConditionIsLiteral(types.True) {
 			return false
+		} else {
+			optionalOutput = true
 		}
-		optionalOutput = true
 	}
 	return optionalOutput
 }
@@ -449,7 +452,8 @@ func (c *compiler) checkUnreachableCode(rule *CompiledRule, iss *cel.Issues) {
 		m := compiledMatches[i]
 		triviallyTrue := m.ConditionIsLiteral(types.True)
 
-		if triviallyTrue && !ruleHasOptional && i != matchCount-1 {
+		isExhaustive := triviallyTrue && !(m.NestedRule() != nil && m.NestedRule().HasOptionalOutput())
+		if isExhaustive && !ruleHasOptional && i != matchCount-1 {
 			if m.Output() != nil {
 				iss.ReportErrorAtID(m.SourceID(), "match creates unreachable outputs")
 			}

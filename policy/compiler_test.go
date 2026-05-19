@@ -139,6 +139,20 @@ func TestCompiledRuleHasOptionalOutput(t *testing.T) {
 			},
 			optional: true,
 		},
+		{
+			rule: &CompiledRule{
+				matches: []*CompiledMatch{
+					{
+						cond: mustCompileExpr(t, env, "true"),
+						nestedRule: &CompiledRule{
+							matches: []*CompiledMatch{{cond: mustCompileExpr(t, env, "1 > 0")}},
+						},
+					},
+					{cond: mustCompileExpr(t, env, "true")},
+				},
+			},
+			optional: false,
+		},
 	}
 	for _, tst := range tests {
 		got := tst.rule.HasOptionalOutput()

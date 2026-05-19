@@ -184,6 +184,32 @@ rule:
     - output: "'outer_default'"
 ```
 
+Nested first-match rules may be unconditional (i.e. the condition is omited or
+is the literal `true`). Unconditional rules can be used as a scoping or
+grouping mechanism. The matches of the parent rule "chain" after an
+unconditional rule. This allows for unwrapping optionals from an inexhaustive
+sub rule. An uncondtional nested rule that is exhaustive must be the last match
+of the parent rule (otherwise, it would leave subsequent matches unreachable).
+
+Example:
+
+```
+rule:
+  match:
+    - rule:
+      variables:
+        - name: "foo"
+          value: 1 + 2
+      match:
+        - condition: "input.foo > variables.foo"
+          output: '"a"'
+        - condition: "input.foo == variables.foo"
+          output: '"b"'
+    - output: '"c"'
+
+```
+
+
 ### Imports
 
 When constructing complex object types such as protocol buffers, `imports` can
