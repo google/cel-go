@@ -210,6 +210,20 @@ var (
 			: optional.none())))
 	  : optional.of(@index3.format([@index0, @index2])))`,
 		},
+		{
+			name: "nested_rules_unconditional_chaining",
+			expr: `
+	cel.@block([3],
+	((x > @index0) ? optional.of("a") : ((x == @index0) ? optional.of("b") : optional.none()))
+	  .orValue("c"))`,
+		},
+		{
+			name: "nested_rules_unconditional_chaining_optional",
+			expr: `
+	cel.@block([3],
+	((x > @index0) ? optional.of("a") : ((x == @index0) ? optional.of("b") : optional.none()))
+	  .or((x == 1) ? optional.of("c") : optional.none()))`,
+		},
 	}
 
 	composerUnnestTests = []struct {
