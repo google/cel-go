@@ -1542,6 +1542,16 @@ func testData(t testing.TB) []testCase {
 			out: types.NewUnknown(2, types.QualifyAttribute[int64](types.NewAttributeTrail("a"), 0)),
 		},
 		{
+			name: "macro_has_map_key_unknown_propagates",
+			expr: `has(a.b)`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", types.NewMapType(types.StringType, types.BoolType)),
+			},
+			attrs: NewPartialAttributeFactory(testContainer(""), types.DefaultTypeAdapter, types.NewEmptyRegistry()),
+			in:    newTestPartialActivation(t, map[string]any{}, NewAttributePattern("a")),
+			out:   types.NewUnknown(4, types.NewAttributeTrail("a")),
+		},
+		{
 			name: "unknown_attribute_mixed_qualifier",
 			expr: `a[dyn(0u)]`,
 			vars: []*decls.VariableDecl{
