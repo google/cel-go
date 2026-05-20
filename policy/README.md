@@ -184,12 +184,32 @@ rule:
     - output: "'outer_default'"
 ```
 
-Nested first-match rules may be unconditional (i.e. the condition is omited or
-is the literal `true`). Unconditional rules can be used as a scoping or
-grouping mechanism. The matches of the parent rule "chain" after an
-unconditional rule. This allows for unwrapping optionals from an inexhaustive
-sub rule. An uncondtional nested rule that is exhaustive must be the last match
-of the parent rule (otherwise, it would leave subsequent matches unreachable).
+##### Using Unconditional Nested Rules
+
+In a first-match policy, a nested rule may be specified without an
+explicit condition (or the condition set as exactly `true`). This is an
+unconditional rule.
+
+Unconditional rules are useful for two primary purposes:
+
+_Scoping Variables_
+
+Unconditional rules may declare variables (like foo in the example below) that
+only apply to a specific group of matches. This avoids cluttering the global
+scope.
+
+_Fallback Behavior (Chaining)_
+
+The inner matches inside an unconditional rule do not need to cover every
+possible scenario. If an input runs through the inner conditions and doesn't
+find a match, the engine doesn't fail or return an optional none value.
+Instead, it steps back out to the parent rule and continues down the list.
+
+Important: if an unconditional nested rule covers every possible scenario
+(meaning it is exhaustive and will always generate an output), it must be the
+last item in the parent rule's match list. Placing it anywhere else will
+create dead code, as the engine can never reach the matches written beneath
+it.
 
 Example:
 
