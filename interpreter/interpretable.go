@@ -194,7 +194,7 @@ func (q *testOnlyQualifier) Qualify(vars Activation, obj any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if unk, isUnk := out.(types.Unknown); isUnk {
+	if unk, isUnk := out.(*types.Unknown); isUnk {
 		return unk, nil
 	}
 	return present, nil
