@@ -35,8 +35,8 @@ def cel_policy_conformance_test_go(
     """
 
     lbl = native.package_relative_label(testdata)
-    workspace_name = lbl.workspace_name if lbl.workspace_name else "cel_policy"
-    testdata_dir = workspace_name + "/" + lbl.package + "/" + lbl.name
+    repo_prefix = lbl.workspace_name + "/" if lbl.workspace_name else ""
+    testdata_dir = repo_prefix + lbl.package + "/" + lbl.name
 
     go_default_test_label = Label(":go_default_test")
     args = [
