@@ -3,6 +3,13 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/google/cel-go)](https://goreportcard.com/report/github.com/google/cel-go)
 [![GoDoc](https://godoc.org/github.com/google/cel-go?status.svg)][6]
 
+> [!WARNING]
+> **On June 16, 2026, this repository will move to
+> github.com/cel-expr/cel-go!**
+>
+> Please update your links and dependencies. See the [pinned
+> issue](https://github.com/google/cel-go/issues/1329) for details.
+
 The Common Expression Language (CEL) is a non-Turing complete language designed
 for simplicity, speed, safety, and portability. CEL's C-like [syntax][1] looks
 nearly identical to equivalent expressions in C++, Go, Java, and TypeScript.
