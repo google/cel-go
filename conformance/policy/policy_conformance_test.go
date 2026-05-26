@@ -145,7 +145,6 @@ func hasTestSuite(dir string) bool {
 	return hasTests && hasPolicy
 }
 
-
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
@@ -174,9 +173,9 @@ func k8sParserOpts() policy.ParserOption {
 }
 
 func TestConformance(t *testing.T) {
-	absTestdataDir, err := runfiles.Rlocation(testdataDir)
+	absTestdataDir, err := rlocation(testdataDir)
 	if err != nil {
-		log.Fatalf("runfiles.Rlocation(%q) failed: %v", testdataDir, err)
+		log.Fatalf("rlocation(%q) failed: %v", testdataDir, err)
 	}
 
 	testDirs := ([]string)(tests)
@@ -219,7 +218,7 @@ func runTestSuite(t *testing.T, fullDirPath, dir, testSuiteFile, policyFile, suf
 		fileDescriptorSetPath = fdsFlag.Value.String()
 	}
 	if fileDescriptorSetPath != "" {
-		fdsPath, err := runfiles.Rlocation(fileDescriptorSetPath)
+		fdsPath, err := rlocation(fileDescriptorSetPath)
 		if err == nil {
 			compileOpts = append(compileOpts, compiler.TypeDescriptorSetFile(fdsPath))
 		}
@@ -244,7 +243,7 @@ func runTestSuite(t *testing.T, fullDirPath, dir, testSuiteFile, policyFile, suf
 		celtest.PartialEvalProgramOption(),
 	}
 	if fileDescriptorSetPath != "" {
-		fdsPath, err := runfiles.Rlocation(fileDescriptorSetPath)
+		fdsPath, err := rlocation(fileDescriptorSetPath)
 		if err == nil {
 			testRunnerOpts = append(testRunnerOpts, celtest.FileDescriptorSet(fdsPath))
 		}
@@ -284,4 +283,8 @@ func runTestSuite(t *testing.T, fullDirPath, dir, testSuiteFile, policyFile, suf
 			}
 		})
 	}
+}
+
+func rlocation(path string) (string, error) {
+	return runfiles.Rlocation(path)
 }

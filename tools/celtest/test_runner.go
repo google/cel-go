@@ -336,6 +336,7 @@ func (a *typeAdorner) GetMetadata(ctx any) string {
 	return " : <no type inferred>"
 }
 
+// DebugAST returns a string representation of the AST adorned with type information.
 func DebugAST(ast *cel.Ast) string {
 	if ast == nil {
 		return "<nil>"
