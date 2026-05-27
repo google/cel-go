@@ -17,8 +17,10 @@ package policy
 import (
 	"log"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/types"
@@ -27,7 +29,8 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	proto3pb "github.com/google/cel-go/test/proto3pb"
+	_ "cel.dev/expr/conformance/proto3"
+	conformancepb "cel.dev/expr/conformance/proto3"
 )
 
 var (
@@ -48,7 +51,7 @@ var (
 	  resource.labels.?environment.orValue("prod"),
 	  resource.labels.?break_glass.orValue("false") == "true"],
 	  !(@index1 || resource.containers.all(c, c.startsWith(@index0 + ".")))
-	    ? optional.of("only %s containers are allowed in namespace %s".format([@index0, resource.namespace]))
+	    ? optional.of("only " + @index0 + " containers are allowed in namespace " + resource.namespace)
 	    : optional.none())`,
 		},
 		{
@@ -129,27 +132,28 @@ var (
 		{
 			name: "context_pb",
 			expr: `
-	(single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
-	? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([single_int32]))
-	: ((standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.BAR ||
-      google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR in imported_enums)
-	  ? optional.of("invalid spec, neither nested nor imported enums may refer to BAR or IMPORT_BAR")
+	(single_int32 > cel.expr.conformance.proto3.TestAllTypes{single_int64: 10}.single_int64)
+	? optional.of("invalid spec, got single_int32=" + string(single_int32) + ", wanted <= 10")
+	: ((standalone_enum == cel.expr.conformance.proto3.TestAllTypes.NestedEnum.BAR ||
+      cel.expr.conformance.proto3.TestAllTypes.NestedEnum.BAZ in repeated_nested_enum)
+	  ? optional.of("invalid spec, neither nested nor repeated enums may refer to BAR or BAZ")
 	  : optional.none())`,
 			envOpts: []cel.EnvOption{
-				cel.Types(&proto3pb.TestAllTypes{}),
+				cel.Types(&conformancepb.TestAllTypes{}),
 			},
 		},
 		{
 			name: "pb",
 			expr: `
-	(spec.single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
-	? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([spec.single_int32]))
-	: ((spec.standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.BAR ||
-      google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR in spec.imported_enums)
-	  ? optional.of("invalid spec, neither nested nor imported enums may refer to BAR or IMPORT_BAR")
+	(spec.single_int32 > cel.expr.conformance.proto3.TestAllTypes{single_int64: 10}.single_int64)
+	? optional.of("invalid spec, got single_int32=" + string(spec.single_int32) + ", wanted <= 10")
+	: ((spec.standalone_enum == cel.expr.conformance.proto3.TestAllTypes.NestedEnum.BAR ||
+      cel.expr.conformance.proto3.TestAllTypes.NestedEnum.BAZ in spec.repeated_nested_enum ||
+      cel.expr.conformance.proto3.GlobalEnum.GAR == cel.expr.conformance.proto3.GlobalEnum.GOO)
+	  ? optional.of("invalid spec, neither nested nor repeated enums may refer to BAR or BAZ")
 	  : optional.none())`,
 			envOpts: []cel.EnvOption{
-				cel.Types(&proto3pb.TestAllTypes{}),
+				cel.Types(&conformancepb.TestAllTypes{}),
 			},
 		},
 		{
@@ -160,9 +164,9 @@ var (
 	  @index0.filter(l, !(l in resource.labels)),
 	  resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
       (@index1.size() > 0)
-	   ? optional.of("missing one or more required labels: %s".format([@index1]))
+	   ? optional.of("missing one or more required labels: [\"" + @index1.join("\", \"") + "\"]")
 	   : ((@index2.size() > 0)
-	     ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
+	     ? optional.of("invalid values provided on one or more labels: [\"" + @index2.join("\", \"") + "\"]")
 		 : optional.none()))`,
 		},
 		{
@@ -198,17 +202,16 @@ var (
 	  "hello",
 	  "goodbye",
 	  "me",
-	  "%s, %s",
-	  @index3.format([@index1, @index2])],
+	  @index1 + ", " + @index2],
 	  (now.getHours() >= 20)
 	  ? ((now.getHours() < 21)
-	    ? optional.of(@index4 + "!")
+	    ? optional.of(@index3 + "!")
 		: ((now.getHours() < 22)
-		  ? optional.of(@index4 + "!!")
+		  ? optional.of(@index3 + "!!")
 		  : ((now.getHours() < 24)
-		    ? optional.of(@index4 + "!!!")
+		    ? optional.of(@index3 + "!!!")
 			: optional.none())))
-	  : optional.of(@index3.format([@index0, @index2])))`,
+	  : optional.of(@index0 + ", " + @index2))`,
 		},
 		{
 			name: "nested_rules_unconditional_chaining",
@@ -267,10 +270,12 @@ var (
 			@index0.filter(l, !(l in resource.labels)),
 			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
 			@index1.size() > 0,
-			"missing one or more required labels: %s".format([@index1]),
+			"missing one or more required labels: [\"" + @index1.join("\", \""),
 			@index2.size() > 0,
-			"invalid values provided on one or more labels: %s".format([@index2])],
-			@index3 ? optional.of(@index4) : (@index5 ? optional.of(@index6) : optional.none()))
+			"invalid values provided on one or more labels: [\"" + @index2.join("\", \""),
+			optional.of(@index4 + "\"]"),
+			optional.of(@index6 + "\"]")],
+			@index3 ? @index7 : (@index5 ? @index8 : optional.none()))
 			`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
@@ -282,13 +287,9 @@ var (
 			spec.labels,
 			@index0.filter(l, !(l in resource.labels)),
 			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
-			(@index2.size() > 0)
-			  ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
-			  : optional.none()
-		],
-		(@index1.size() > 0)
-		  ? optional.of("missing one or more required labels: %s".format([@index1]))
-		  : @index3)`,
+			optional.of("missing one or more required labels: [\"" + @index1.join("\", \"") + "\"]"),
+			optional.of("invalid values provided on one or more labels: [\"" + @index2.join("\", \"") + "\"]")],
+			(@index1.size() > 0) ? @index3 : ((@index2.size() > 0) ? @index4 : optional.none()))`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
 		{
@@ -330,14 +331,13 @@ var (
 		"hello",
 		"goodbye",
 		"me",
-		"%s, %s",
-		@index3.format([@index1, @index2]),
-		(now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none(),
-		optional.of(@index3.format([@index0, @index2]))],
+		@index1 + ", " + @index2,
+		(now.getHours() < 24) ? optional.of(@index3 + "!!!") : optional.none(),
+		optional.of(@index0 + ", " + @index2)],
 		(now.getHours() >= 20)
-		? ((now.getHours() < 21) ? optional.of(@index4 + "!") :
-		  ((now.getHours() < 22) ? optional.of(@index4 + "!!") : @index5))
-		: @index6)`,
+		? ((now.getHours() < 21) ? optional.of(@index3 + "!") :
+		  ((now.getHours() < 22) ? optional.of(@index3 + "!!") : @index4))
+		: @index5)`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
 		{
@@ -348,13 +348,12 @@ var (
 		"hello",
 		"goodbye",
 		"me",
-		"%s, %s",
-		@index3.format([@index1, @index2]),
-		(now.getHours() < 22) ? optional.of(@index4 + "!!") :
-		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none())],
+		@index1 + ", " + @index2,
+		(now.getHours() < 22) ? optional.of(@index3 + "!!") :
+		((now.getHours() < 24) ? optional.of(@index3 + "!!!") : optional.none())],
 		(now.getHours() >= 20)
-		? ((now.getHours() < 21) ? optional.of(@index4 + "!") : @index5)
-		: optional.of(@index3.format([@index0, @index2])))
+		? ((now.getHours() < 21) ? optional.of(@index3 + "!") : @index4)
+		: optional.of(@index0 + ", " + @index2))
 		`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
@@ -366,12 +365,11 @@ var (
 		"hello",
 		"goodbye",
 		"me",
-		"%s, %s",
-		@index3.format([@index1, @index2]),
-		(now.getHours() < 21) ? optional.of(@index4 + "!") :
-		((now.getHours() < 22) ? optional.of(@index4 + "!!") :
-		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none()))],
-		(now.getHours() >= 20) ? @index5 : optional.of(@index3.format([@index0, @index2])))`,
+		@index1 + ", " + @index2,
+		(now.getHours() < 21) ? optional.of(@index3 + "!") :
+		((now.getHours() < 22) ? optional.of(@index3 + "!!") :
+		((now.getHours() < 24) ? optional.of(@index3 + "!!!") : optional.none()))],
+		(now.getHours() >= 20) ? @index4 : optional.of(@index0 + ", " + @index2))`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
 	}
@@ -423,10 +421,10 @@ ERROR: testdata/errors/policy.yaml:45:16: incompatible output types: block has o
 		},
 		{
 			name: "limits",
-			err: `ERROR: testdata/limits/policy.yaml:30:9: rule exceeds nested expression limit
+			err: `ERROR: testdata/limits/policy.yaml:28:9: rule exceeds nested expression limit
  |         id: "farewells"
  | ........^`,
-			compilerOpts: []CompilerOption{MaxNestedExpressions(5)},
+			compilerOpts: []CompilerOption{MaxNestedExpressions(4)},
 		},
 		{
 			name: "errors_unreachable",
@@ -446,9 +444,37 @@ ERROR: testdata/errors_unreachable/policy.yaml:36:13: match creates unreachable 
 	}
 )
 
+func resolveRunfilePath(t testing.TB, path string) string {
+	t.Helper()
+	if strings.HasPrefix(path, "testdata/") {
+		policyPath := "cel_policy/conformance/" + path
+		resolved, err := runfiles.Rlocation(policyPath)
+		if err == nil && fileExists(resolved) {
+			return resolved
+		}
+		localPath := "cel-go/policy/" + path
+		resolved, err = runfiles.Rlocation(localPath)
+		if err == nil && fileExists(resolved) {
+			return resolved
+		}
+	}
+	resolved, err := runfiles.Rlocation(path)
+	if err == nil && fileExists(resolved) {
+		return resolved
+	}
+	t.Fatalf("failed to resolve test file path %q in runfiles", path)
+	return ""
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
 func readPolicy(t testing.TB, fileName string) *Source {
 	t.Helper()
-	policyBytes, err := os.ReadFile(fileName)
+	resolvedPath := resolveRunfilePath(t, fileName)
+	policyBytes, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		t.Fatalf("os.ReadFile(%s) failed: %v", fileName, err)
 	}
@@ -457,7 +483,8 @@ func readPolicy(t testing.TB, fileName string) *Source {
 
 func readPolicyConfig(t testing.TB, fileName string) *env.Config {
 	t.Helper()
-	testCaseBytes, err := os.ReadFile(fileName)
+	resolvedPath := resolveRunfilePath(t, fileName)
+	testCaseBytes, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		t.Fatalf("os.ReadFile(%s) failed: %v", fileName, err)
 	}
@@ -471,7 +498,8 @@ func readPolicyConfig(t testing.TB, fileName string) *env.Config {
 
 func readTestSuite(t testing.TB, fileName string) *test.Suite {
 	t.Helper()
-	testCaseBytes, err := os.ReadFile(fileName)
+	resolvedPath := resolveRunfilePath(t, fileName)
+	testCaseBytes, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		t.Fatalf("os.ReadFile(%s) failed: %v", fileName, err)
 	}

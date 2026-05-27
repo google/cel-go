@@ -18,7 +18,10 @@ runtime target.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+def _is_label(s):
+    return s.startswith("//") or s.startswith(":") or s.startswith("@")
 
 def cel_go_test(
         name,
@@ -66,67 +69,73 @@ def cel_go_test(
       **kwargs: additional arguments to pass to the go_test rule
     """
 
-    _, cel_expr_format = paths.split_extension(cel_expr)
-    if filegroup != "":
-        data = data + [filegroup]
-    elif test_data_path != "" and test_data_path != native.package_name():
-        if config != "":
-            data = data + [test_data_path + ":" + config]
-        if base_config != "":
-            data = data + [test_data_path + ":" + base_config]
-        if test_suite != "":
-            data = data + [test_data_path + ":" + test_suite]
-        if cel_expr_format == ".cel" or cel_expr_format == ".celpolicy" or cel_expr_format == ".yaml":
-            data = data + [test_data_path + ":" + cel_expr]
-    else:
-        test_data_path = native.package_name()
-        if config != "":
-            data = data + [config]
-        if base_config != "":
-            data = data + [base_config]
-        if test_suite != "":
-            data = data + [test_suite]
-        if cel_expr_format == ".cel" or cel_expr_format == ".celpolicy" or cel_expr_format == ".yaml":
-            data = data + [cel_expr]
+    # Avoid mutating the original data list passed into the macro
+    resolved_data = list(data)
+    resolved_deps = list(deps)
 
-    test_data_path = test_data_path.lstrip("/")
+    # Normalize paths
+    pkg_name = native.package_name()
+    test_data_dir = test_data_path.lstrip("/") if test_data_path else pkg_name
 
-    if test_suite != "":
-        test_suite = test_data_path + "/" + test_suite
-
-    if config != "":
-        config = test_data_path + "/" + config
-
-    if base_config != "":
-        base_config = test_data_path + "/" + base_config
-
-    srcs = [test_src]
+    # Add filegroup if provided
+    if filegroup:
+        resolved_data.append(filegroup)
 
     args = [
-        "--test_suite_path=%s" % test_suite,
-        "--config_path=%s" % config,
-        "--base_config_path=%s" % base_config,
         "--enable_coverage=%s" % enable_coverage,
     ]
 
-    if cel_expr_format == ".cel" or cel_expr_format == ".celpolicy" or cel_expr_format == ".yaml":
-        args.append("--cel_expr=%s" % test_data_path + "/" + cel_expr)
-    elif is_raw_expr:
-        data = data + [cel_expr]
-        args.append("--cel_expr=%s" % cel_expr)
-    else:
-        args.append("--cel_expr=$(location {})".format(cel_expr))
+    def _process_file_arg(file_val, flag_name):
+        """Helper to append args and resolve data targets for file inputs."""
+        if not file_val:
+            return
 
-    if file_descriptor_set != "":
-        data = data + [file_descriptor_set]
-        args.append("--file_descriptor_set=$(location {})".format(file_descriptor_set))
+        if _is_label(file_val):
+            args.append("--{}=$(rlocationpath {})".format(flag_name, file_val))
+            resolved_data.append(file_val)
+        else:
+            args.append("--{}={}/{}".format(flag_name, test_data_dir, file_val))
+            if not filegroup:
+                target = file_val if test_data_dir == pkg_name else "//{}:{}".format(test_data_dir, file_val)
+                resolved_data.append(target)
+
+    _process_file_arg(test_suite, "test_suite_path")
+    _process_file_arg(config, "config_path")
+    _process_file_arg(base_config, "base_config_path")
+
+    # Process cel_expr (has specialized fallback logic)
+    _, cel_expr_format = paths.split_extension(cel_expr)
+    is_valid_cel_ext = cel_expr_format in [".cel", ".celpolicy", ".yaml"]
+
+    if _is_label(cel_expr):
+        args.append("--cel_expr=$(rlocationpath {})".format(cel_expr))
+        resolved_data.append(cel_expr)
+    elif is_raw_expr:
+        args.append("--cel_expr=%s" % cel_expr)
+    elif is_valid_cel_ext:
+        args.append("--cel_expr={}/{}".format(test_data_dir, cel_expr))
+        if not filegroup:
+            target = cel_expr if test_data_dir == pkg_name else "//{}:{}".format(test_data_dir, cel_expr)
+            resolved_data.append(target)
+    else:
+        args.append("--cel_expr=$(rlocationpath {})".format(cel_expr))
+        resolved_data.append(cel_expr)
+
+    if file_descriptor_set:
+        if _is_label(file_descriptor_set):
+            resolved_data.append(file_descriptor_set)
+            args.append("--file_descriptor_set=$(rlocationpath {})".format(file_descriptor_set))
+        else:
+            target = file_descriptor_set if test_data_dir == pkg_name else "//{}:{}".format(test_data_dir, file_descriptor_set)
+            resolved_data.append(target)
+            args.append("--file_descriptor_set=$(rlocationpath {})".format(target))
 
     go_test(
         name = name,
-        srcs = srcs,
+        srcs = [test_src],
         args = args,
-        data = data,
-        deps = deps + [
+        data = resolved_data,
+        deps = resolved_deps + [
             "//cel:go_default_library",
             "//common/types:go_default_library",
             "//common/types/ref:go_default_library",
@@ -151,3 +160,4 @@ def cel_go_test(
         ],
         **kwargs
     )
+

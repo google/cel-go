@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/tools/compiler"
 )
 
+
 func TestCoverageStats(t *testing.T) {
 	testCases := []struct {
 		name                       string
@@ -37,9 +38,9 @@ func TestCoverageStats(t *testing.T) {
 	}{
 		{
 			name:                       "restricted destinations policy coverage",
-			configPath:                 "../../policy/testdata/restricted_destinations/config.yaml",
-			testSuitePath:              "../../policy/testdata/restricted_destinations/tests.yaml",
-			celExpr:                    "../../policy/testdata/restricted_destinations/policy.yaml",
+			configPath:                 testFilePath(t, "cel_policy/conformance/testdata/restricted_destinations/config.yaml"),
+			testSuitePath:              testFilePath(t, "cel_policy/conformance/testdata/restricted_destinations/tests.yaml"),
+			celExpr:                    testFilePath(t, "cel_policy/conformance/testdata/restricted_destinations/policy.yaml"),
 			compilerOpts:               []any{locationCodeEnvOption()},
 			totalASTNodes:              44,
 			coveredBranchNodesComplete: []int64{1, 7, 11, 12, 19, 23, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 42},
@@ -48,19 +49,19 @@ func TestCoverageStats(t *testing.T) {
 		},
 		{
 			name:                       "k8s policy coverage",
-			configPath:                 "../../policy/testdata/k8s/config.yaml",
-			testSuitePath:              "../../policy/testdata/k8s/tests.yaml",
-			celExpr:                    "../../policy/testdata/k8s/policy.yaml",
+			configPath:                 testFilePath(t, "cel_policy/conformance/testdata/k8s/config.yaml"),
+			testSuitePath:              testFilePath(t, "cel_policy/conformance/testdata/k8s/tests.yaml"),
+			celExpr:                    testFilePath(t, "cel_policy/conformance/testdata/k8s/policy.yaml"),
 			compilerOpts:               []any{k8sParserOpts()},
-			totalASTNodes:              38,
+			totalASTNodes:              40,
 			coveredBranchNodesComplete: []int64{},
 			coveredBranchNodesPartial:  []int64{8, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 31},
-			uncoveredNodes:             []int64{5, 6, 7, 11, 12, 38},
+			uncoveredNodes:             []int64{5, 6, 7, 11, 12},
 		},
 		{
 			name:                       "policy with custom policy metadata coverage",
-			testSuitePath:              "../../tools/celtest/testdata/custom_policy_tests.yaml",
-			celExpr:                    "../../tools/celtest/testdata/custom_policy.celpolicy",
+			testSuitePath:              testFilePath(t, "cel-go/tools/celtest/testdata/custom_policy_tests.yaml"),
+			celExpr:                    testFilePath(t, "cel-go/tools/celtest/testdata/custom_policy.celpolicy"),
 			compilerOpts:               []any{customPolicyParserOption(), compiler.PolicyMetadataEnvOption(ParsePolicyVariables)},
 			totalASTNodes:              10,
 			coveredBranchNodesComplete: []int64{1, 2, 3, 6},
@@ -69,9 +70,9 @@ func TestCoverageStats(t *testing.T) {
 		},
 		{
 			name:                       "raw expression file with unknowns test coverage",
-			configPath:                 "../../tools/celtest/testdata/config.yaml",
-			testSuitePath:              "../../tools/celtest/testdata/raw_expr_tests.yaml",
-			celExpr:                    "../../tools/celtest/testdata/raw_expr.cel",
+			configPath:                 testFilePath(t, "cel-go/tools/celtest/testdata/config.yaml"),
+			testSuitePath:              testFilePath(t, "cel-go/tools/celtest/testdata/raw_expr_tests.yaml"),
+			celExpr:                    testFilePath(t, "cel-go/tools/celtest/testdata/raw_expr.cel"),
 			compilerOpts:               []any{fnEnvOption()},
 			totalASTNodes:              8,
 			coveredBranchNodesComplete: []int64{1, 6, 8},
