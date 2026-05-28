@@ -95,7 +95,7 @@ filegroup(
 proto_descriptor_set(
     name = "test_all_types_fds",
     deps = [
-        "@dev_cel_expr//proto/cel/expr/conformance/proto3:test_all_types_proto",
+        "//test/proto3pb:test_all_types_proto",
     ],
 )
 

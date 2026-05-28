@@ -27,7 +27,6 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	_ "cel.dev/expr/conformance/proto3"
 )
 
 var (
@@ -37,6 +36,20 @@ var (
 		parseOpts []ParserOption
 		expr      string
 	}{
+		{
+			name: "k8s",
+			parseOpts: []ParserOption{func(p *Parser) (*Parser, error) {
+				p.TagVisitor = K8sTestTagHandler()
+				return p, nil
+			}},
+			expr: `
+	cel.@block([
+	  resource.labels.?environment.orValue("prod"),
+	  resource.labels.?break_glass.orValue("false") == "true"],
+	  !(@index1 || resource.containers.all(c, c.startsWith(@index0 + ".")))
+	    ? optional.of("only %s containers are allowed in namespace %s".format([@index0, resource.namespace]))
+	    : optional.none())`,
+		},
 		{
 			name: "unnest",
 			expr: `
@@ -49,45 +62,6 @@ var (
 	     ? optional.of("at least one power of 6")
 		 : optional.none())))
 			`,
-		},
-		{
-			name: "limits",
-			expr: `
-    cel.@block([
-	  "hello",
-	  "goodbye",
-	  "me",
-	  @index1 + ", " + @index2],
-	  (now.getHours() >= 20)
-	  ? ((now.getHours() < 21)
-	    ? optional.of(@index3 + "!")
-		: ((now.getHours() < 22)
-		  ? optional.of(@index3 + "!!")
-		  : ((now.getHours() < 24)
-		    ? optional.of(@index3 + "!!!")
-			: optional.none())))
-	  : optional.of(@index0 + ", " + @index2))`,
-		},
-		{
-			name: "nested_rules_unconditional_chaining",
-			expr: `
-	cel.@block([3],
-	((x > @index0) ? optional.of("a") : ((x == @index0) ? optional.of("b") : optional.none()))
-	  .orValue("c"))`,
-		},
-		{
-			name: "nested_rules_unconditional_chaining_optional",
-			expr: `
-	cel.@block([3],
-	((x > @index0) ? optional.of("a") : ((x == @index0) ? optional.of("b") : optional.none()))
-	  .or((x == 1) ? optional.of("c") : optional.none()))`,
-		},
-		{
-			name: "nested_rules_unwrap_rewrap",
-			expr: `
-	(x == 1)
-	  ? optional.of(((y == 1) ? optional.of("a") : optional.none()).orValue("b"))
-	  : optional.none()`,
 		},
 		{
 			name: "restricted_destinations",
@@ -114,6 +88,46 @@ var (
 							}
 						}))),
 			},
+		},
+		{
+			name: "limits",
+			expr: `
+    cel.@block([
+	  "hello",
+	  "goodbye",
+	  "me",
+	  "%s, %s",
+	  @index3.format([@index1, @index2])],
+	  (now.getHours() >= 20)
+	  ? ((now.getHours() < 21)
+	    ? optional.of(@index4 + "!")
+		: ((now.getHours() < 22)
+		  ? optional.of(@index4 + "!!")
+		  : ((now.getHours() < 24)
+		    ? optional.of(@index4 + "!!!")
+			: optional.none())))
+	  : optional.of(@index3.format([@index0, @index2])))`,
+		},
+		{
+			name: "nested_rules_unconditional_chaining",
+			expr: `
+	cel.@block([3],
+	((x > @index0) ? optional.of("a") : ((x == @index0) ? optional.of("b") : optional.none()))
+	  .orValue("c"))`,
+		},
+		{
+			name: "nested_rules_unconditional_chaining_optional",
+			expr: `
+	cel.@block([3],
+	((x > @index0) ? optional.of("a") : ((x == @index0) ? optional.of("b") : optional.none()))
+	  .or((x == 1) ? optional.of("c") : optional.none()))`,
+		},
+		{
+			name: "nested_rules_unwrap_rewrap",
+			expr: `
+	(x == 1)
+	  ? optional.of(((y == 1) ? optional.of("a") : optional.none()).orValue("b"))
+	  : optional.none()`,
 		},
 	}
 
@@ -142,6 +156,7 @@ var (
 			`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
+
 		{
 			name:         "limits",
 			composerOpts: []ComposerOption{ExpressionUnnestHeight(3)},
@@ -150,13 +165,14 @@ var (
 		"hello",
 		"goodbye",
 		"me",
-		@index1 + ", " + @index2,
-		(now.getHours() < 24) ? optional.of(@index3 + "!!!") : optional.none(),
-		optional.of(@index0 + ", " + @index2)],
+		"%s, %s",
+		@index3.format([@index1, @index2]),
+		(now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none(),
+		optional.of(@index3.format([@index0, @index2]))],
 		(now.getHours() >= 20)
-		? ((now.getHours() < 21) ? optional.of(@index3 + "!") :
-		  ((now.getHours() < 22) ? optional.of(@index3 + "!!") : @index4))
-		: @index5)`,
+		? ((now.getHours() < 21) ? optional.of(@index4 + "!") :
+		  ((now.getHours() < 22) ? optional.of(@index4 + "!!") : @index5))
+		: @index6)`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
 		{
@@ -167,12 +183,13 @@ var (
 		"hello",
 		"goodbye",
 		"me",
-		@index1 + ", " + @index2,
-		(now.getHours() < 22) ? optional.of(@index3 + "!!") :
-		((now.getHours() < 24) ? optional.of(@index3 + "!!!") : optional.none())],
+		"%s, %s",
+		@index3.format([@index1, @index2]),
+		(now.getHours() < 22) ? optional.of(@index4 + "!!") :
+		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none())],
 		(now.getHours() >= 20)
-		? ((now.getHours() < 21) ? optional.of(@index3 + "!") : @index4)
-		: optional.of(@index0 + ", " + @index2))
+		? ((now.getHours() < 21) ? optional.of(@index4 + "!") : @index5)
+		: optional.of(@index3.format([@index0, @index2])))
 		`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
@@ -184,11 +201,12 @@ var (
 		"hello",
 		"goodbye",
 		"me",
-		@index1 + ", " + @index2,
-		(now.getHours() < 21) ? optional.of(@index3 + "!") :
-		((now.getHours() < 22) ? optional.of(@index3 + "!!") :
-		((now.getHours() < 24) ? optional.of(@index3 + "!!!") : optional.none()))],
-		(now.getHours() >= 20) ? @index4 : optional.of(@index0 + ", " + @index2))`,
+		"%s, %s",
+		@index3.format([@index1, @index2]),
+		(now.getHours() < 21) ? optional.of(@index4 + "!") :
+		((now.getHours() < 22) ? optional.of(@index4 + "!!") :
+		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none()))],
+		(now.getHours() >= 20) ? @index5 : optional.of(@index3.format([@index0, @index2])))`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
 	}
@@ -240,10 +258,10 @@ ERROR: testdata/errors/policy.yaml:45:16: incompatible output types: block has o
 		},
 		{
 			name: "limits",
-			err: `ERROR: testdata/limits/policy.yaml:28:9: rule exceeds nested expression limit
+			err: `ERROR: testdata/limits/policy.yaml:30:9: rule exceeds nested expression limit
  |         id: "farewells"
  | ........^`,
-			compilerOpts: []CompilerOption{MaxNestedExpressions(4)},
+			compilerOpts: []CompilerOption{MaxNestedExpressions(5)},
 		},
 		{
 			name: "errors_unreachable",

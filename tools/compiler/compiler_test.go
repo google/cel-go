@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/ext"
@@ -370,18 +369,9 @@ func envOptionToConfig(t *testing.T, name string, opts ...cel.EnvOption) (*env.C
 	return conf, nil
 }
 
-func testFilePath(t *testing.T, path string) string {
-	t.Helper()
-	resolved, err := runfiles.Rlocation(path)
-	if err != nil {
-		t.Fatalf("runfiles.Rlocation(%q) failed: %v", path, err)
-	}
-	return resolved
-}
-
 func TestFileExpressionCustomPolicyParser(t *testing.T) {
 	t.Run("test file expression custom policy parser", func(t *testing.T) {
-		envOpt := EnvironmentFile(testFilePath(t, "cel_policy/conformance/testdata/k8s/config.yaml"))
+		envOpt := EnvironmentFile("../../policy/testdata/k8s/config.yaml")
 		parserOpt := policy.ParserOption(func(p *policy.Parser) (*policy.Parser, error) {
 			p.TagVisitor = policy.K8sTestTagHandler()
 			return p, nil
@@ -392,7 +382,7 @@ func TestFileExpressionCustomPolicyParser(t *testing.T) {
 			t.Fatalf("NewCompiler() failed: %v", err)
 		}
 		policyFile := &FileExpression{
-			Path: testFilePath(t, "cel_policy/conformance/testdata/k8s/policy.yaml"),
+			Path: "../../policy/testdata/k8s/policy.yaml",
 		}
 		k8sAst, _, err := policyFile.CreateAST(compiler)
 		if err != nil {

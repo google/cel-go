@@ -21,6 +21,8 @@ rule:
       expression: "'goodbye'"
     - name: "person"
       expression: "'me'"
+    - name: "message_fmt"
+      expression: "'%s, %s'"
   match:
     - condition: |
         now.getHours() >= 20
@@ -29,7 +31,8 @@ rule:
         variables:
           - name: "message"
             expression: >
-              variables.farewell + ", " + variables.person
+              variables.message_fmt.format([variables.farewell,
+                                            variables.person])
         match:
           - condition: >
               now.getHours() < 21
@@ -41,4 +44,4 @@ rule:
               now.getHours() < 24
             output: variables.message + "!!!"
     - output: >
-        variables.greeting + ", " + variables.person
+        variables.message_fmt.format([variables.greeting, variables.person])

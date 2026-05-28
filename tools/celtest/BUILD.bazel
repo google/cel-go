@@ -79,8 +79,7 @@ go_test(
         "//tools/compiler:go_default_library",
         "@dev_cel_expr//conformance/test:go_default_library",
         "@in_yaml_go_yaml_v3//:go_default_library",
-        "@io_bazel_rules_go//go/runfiles",
-    ],
+    ]
 )
 
 filegroup(
@@ -91,10 +90,11 @@ filegroup(
 # trigger cel_go_test with resource files located under test_data_path
 cel_go_test(
     name = "pb_policy",
-    cel_expr = "@cel_policy//conformance:testdata/pb/policy.yaml",
-    config = "@cel_policy//conformance:testdata/pb/config.yaml",
+    cel_expr = "testdata/pb/policy.yaml",
+    config = "testdata/pb/config.yaml",
     enable_coverage = True,
     file_descriptor_set = "//policy:test_all_types_fds",
+    test_data_path = "//policy",
     test_src = "//policy/test:cel_test_runner.go",
-    test_suite = "@cel_policy//conformance:testdata/pb/tests.yaml",
+    test_suite = "testdata/pb/tests.yaml",
 )

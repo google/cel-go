@@ -18,7 +18,6 @@ package celtest
 import (
 	"testing"
 
-	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
@@ -41,29 +40,20 @@ type testCase struct {
 	opts                  []any
 }
 
-func testFilePath(t *testing.T, path string) string {
-	t.Helper()
-	resolved, err := runfiles.Rlocation(path)
-	if err != nil {
-		t.Fatalf("runfiles.Rlocation(%q) failed: %v", path, err)
-	}
-	return resolved
-}
-
-func setupTests(t *testing.T) []*testCase {
+func setupTests() []*testCase {
 	testCases := []*testCase{
 		{
 			name:          "policy test with custom policy parser",
-			celExpression: testFilePath(t, "cel_policy/conformance/testdata/k8s/policy.yaml"),
-			testSuitePath: testFilePath(t, "cel_policy/conformance/testdata/k8s/tests.yaml"),
-			configPath:    testFilePath(t, "cel_policy/conformance/testdata/k8s/config.yaml"),
+			celExpression: "../../policy/testdata/k8s/policy.yaml",
+			testSuitePath: "../../policy/testdata/k8s/tests.yaml",
+			configPath:    "../../policy/testdata/k8s/config.yaml",
 			opts:          []any{k8sParserOpts()},
 		},
 		{
 			name:          "policy test with function binding",
-			celExpression: testFilePath(t, "cel_policy/conformance/testdata/restricted_destinations/policy.yaml"),
-			testSuitePath: testFilePath(t, "cel_policy/conformance/testdata/restricted_destinations/tests.yaml"),
-			configPath:    testFilePath(t, "cel_policy/conformance/testdata/restricted_destinations/config.yaml"),
+			celExpression: "../../policy/testdata/restricted_destinations/policy.yaml",
+			testSuitePath: "../../policy/testdata/restricted_destinations/tests.yaml",
+			configPath:    "../../policy/testdata/restricted_destinations/config.yaml",
 			opts:          []any{locationCodeEnvOption()},
 		},
 		{
@@ -118,9 +108,9 @@ func k8sParserOpts() policy.ParserOption {
 // by providing test runner and compiler options without setting the flag variables.
 func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 	t.Run("test trigger tests custom policy", func(t *testing.T) {
-		envOpt := compiler.EnvironmentFile(testFilePath(t, "cel_policy/conformance/testdata/k8s/config.yaml"))
-		testSuite := TestSuite(testFilePath(t, "cel_policy/conformance/testdata/k8s/tests.yaml"))
-		testCELPolicy := TestExpression(testFilePath(t, "cel_policy/conformance/testdata/k8s/policy.yaml"))
+		envOpt := compiler.EnvironmentFile("../../policy/testdata/k8s/config.yaml")
+		testSuite := TestSuite("../../policy/testdata/k8s/tests.yaml")
+		testCELPolicy := TestExpression("../../policy/testdata/k8s/policy.yaml")
 		c, err := compiler.NewCompiler(envOpt, k8sParserOpts())
 		if err != nil {
 			t.Fatalf("compiler.NewCompiler() failed: %v", err)
@@ -193,7 +183,7 @@ func fnEnvOption() cel.EnvOption {
 
 // TestTriggerTests tests different scenarios of the TriggerTestsFromCompiler function.
 func TestTriggerTests(t *testing.T) {
-	for _, tc := range setupTests(t) {
+	for _, tc := range setupTests() {
 		t.Run(tc.name, func(t *testing.T) {
 			var testOpts []TestRunnerOption
 			compileOpts := make([]any, 0, len(tc.opts)+2)
