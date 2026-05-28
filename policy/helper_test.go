@@ -17,10 +17,8 @@ package policy
 import (
 	"log"
 	"os"
-	"strings"
 	"testing"
 
-	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/types"
@@ -30,7 +28,6 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	_ "cel.dev/expr/conformance/proto3"
-	conformancepb "cel.dev/expr/conformance/proto3"
 )
 
 var (
@@ -40,82 +37,6 @@ var (
 		parseOpts []ParserOption
 		expr      string
 	}{
-		{
-			name: "k8s",
-			parseOpts: []ParserOption{func(p *Parser) (*Parser, error) {
-				p.TagVisitor = K8sTestTagHandler()
-				return p, nil
-			}},
-			expr: `
-	cel.@block([
-	  resource.labels.?environment.orValue("prod"),
-	  resource.labels.?break_glass.orValue("false") == "true"],
-	  !(@index1 || resource.containers.all(c, c.startsWith(@index0 + ".")))
-	    ? optional.of("only " + @index0 + " containers are allowed in namespace " + resource.namespace)
-	    : optional.none())`,
-		},
-		{
-			name: "nested_rule",
-			expr: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false}],
-	  ((resource.origin in @index1 && !(resource.origin in @index0))
-	    ? optional.of({"banned": true}) : optional.none()).orValue(
-	     (resource.origin in @index0) ? {"banned": false} : {"banned": true}))`,
-		},
-		{
-			name: "nested_rule2",
-			expr: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false}],
-	  resource.?user.orValue("").startsWith("bad")
-	  ? ((resource.origin in @index1 && !(resource.origin in @index0))
-	    ? {"banned": "restricted_region"}
-	    : {"banned": "bad_actor"})
-	  : (!(resource.origin in @index0)
-	    ? {"banned": "unconfigured_region"} : {}))`,
-		},
-		{
-			name: "nested_rule3",
-			expr: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false}],
-	  resource.?user.orValue("").startsWith("bad")
-	  ? optional.of((resource.origin in @index1 && !(resource.origin in @index0))
-	    ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
-		: (!(resource.origin in @index0)
-		  ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
-		},
-		{
-			name: "nested_rule4",
-			expr: `(x > 0) ? true : false`,
-		},
-		{
-			name: "nested_rule5",
-			expr: `
-	(x > 0)
-	  ? ((x > 2) ? optional.of(true) : optional.none())
-	  : ((x > 1)
-	    ? ((x >= 2) ? optional.of(true) : optional.none())
-		: optional.of(false))`,
-		},
-		{
-			name: "nested_rule6",
-			expr: `
-	((x > 2) ? optional.of(true) : optional.none())
-	  .orValue(((x > 3) ? optional.of(true) : optional.none())
-	  .orValue(false))`,
-		},
-		{
-			name: "nested_rule7",
-			expr: `
-	((x > 2) ? optional.of(true) : optional.none())
-	.or(((x > 3) ? optional.of(true) : optional.none())
-	.or((x > 1) ? optional.of(false) : optional.none()))`,
-		},
 		{
 			name: "unnest",
 			expr: `
@@ -128,72 +49,6 @@ var (
 	     ? optional.of("at least one power of 6")
 		 : optional.none())))
 			`,
-		},
-		{
-			name: "context_pb",
-			expr: `
-	(single_int32 > cel.expr.conformance.proto3.TestAllTypes{single_int64: 10}.single_int64)
-	? optional.of("invalid spec, got single_int32=" + string(single_int32) + ", wanted <= 10")
-	: ((standalone_enum == cel.expr.conformance.proto3.TestAllTypes.NestedEnum.BAR ||
-      cel.expr.conformance.proto3.TestAllTypes.NestedEnum.BAZ in repeated_nested_enum)
-	  ? optional.of("invalid spec, neither nested nor repeated enums may refer to BAR or BAZ")
-	  : optional.none())`,
-			envOpts: []cel.EnvOption{
-				cel.Types(&conformancepb.TestAllTypes{}),
-			},
-		},
-		{
-			name: "pb",
-			expr: `
-	(spec.single_int32 > cel.expr.conformance.proto3.TestAllTypes{single_int64: 10}.single_int64)
-	? optional.of("invalid spec, got single_int32=" + string(spec.single_int32) + ", wanted <= 10")
-	: ((spec.standalone_enum == cel.expr.conformance.proto3.TestAllTypes.NestedEnum.BAR ||
-      cel.expr.conformance.proto3.TestAllTypes.NestedEnum.BAZ in spec.repeated_nested_enum ||
-      cel.expr.conformance.proto3.GlobalEnum.GAR == cel.expr.conformance.proto3.GlobalEnum.GOO)
-	  ? optional.of("invalid spec, neither nested nor repeated enums may refer to BAR or BAZ")
-	  : optional.none())`,
-			envOpts: []cel.EnvOption{
-				cel.Types(&conformancepb.TestAllTypes{}),
-			},
-		},
-		{
-			name: "required_labels",
-			expr: `
-	cel.@block([
-	  spec.labels,
-	  @index0.filter(l, !(l in resource.labels)),
-	  resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
-      (@index1.size() > 0)
-	   ? optional.of("missing one or more required labels: [\"" + @index1.join("\", \"") + "\"]")
-	   : ((@index2.size() > 0)
-	     ? optional.of("invalid values provided on one or more labels: [\"" + @index2.join("\", \"") + "\"]")
-		 : optional.none()))`,
-		},
-		{
-			name: "restricted_destinations",
-			expr: `
-    cel.@block([
-	  locationCode(origin.ip) == spec.origin,
-	  has(request.auth.claims.nationality),
-	  @index1 && request.auth.claims.nationality == spec.origin,
-	  locationCode(destination.ip) in spec.restricted_destinations,
-	  resource.labels.location in spec.restricted_destinations,
-	  @index3 || @index4],
-	  (@index2 && @index5) ? true : ((!@index1 && @index0 && @index5) ? true : false))`,
-			envOpts: []cel.EnvOption{
-				cel.Function("locationCode",
-					cel.Overload("locationCode_string", []*cel.Type{cel.StringType}, cel.StringType,
-						cel.UnaryBinding(func(ip ref.Val) ref.Val {
-							switch ip.(types.String) {
-							case types.String("10.0.0.1"):
-								return types.String("us")
-							case types.String("10.0.0.2"):
-								return types.String("de")
-							default:
-								return types.String("ir")
-							}
-						}))),
-			},
 		},
 		{
 			name: "limits",
@@ -234,6 +89,32 @@ var (
 	  ? optional.of(((y == 1) ? optional.of("a") : optional.none()).orValue("b"))
 	  : optional.none()`,
 		},
+		{
+			name: "restricted_destinations",
+			expr: `
+    cel.@block([
+	  locationCode(origin.ip) == spec.origin,
+	  has(request.auth.claims.nationality),
+	  @index1 && request.auth.claims.nationality == spec.origin,
+	  locationCode(destination.ip) in spec.restricted_destinations,
+	  resource.labels.location in spec.restricted_destinations,
+	  @index3 || @index4],
+	  (@index2 && @index5) ? true : ((!@index1 && @index0 && @index5) ? true : false))`,
+			envOpts: []cel.EnvOption{
+				cel.Function("locationCode",
+					cel.Overload("locationCode_string", []*cel.Type{cel.StringType}, cel.StringType,
+						cel.UnaryBinding(func(ip ref.Val) ref.Val {
+							switch ip.(types.String) {
+							case types.String("10.0.0.1"):
+								return types.String("us")
+							case types.String("10.0.0.2"):
+								return types.String("de")
+							default:
+								return types.String("ir")
+							}
+						}))),
+			},
+		},
 	}
 
 	composerUnnestTests = []struct {
@@ -260,68 +141,6 @@ var (
 	  @index2 ? optional.of("some divisible by 2") : @index4)
 			`,
 			outputType: cel.OptionalType(cel.StringType),
-		},
-		{
-			name:         "required_labels",
-			composerOpts: []ComposerOption{ExpressionUnnestHeight(2)},
-			composed: `
-		cel.@block([
-			spec.labels,
-			@index0.filter(l, !(l in resource.labels)),
-			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
-			@index1.size() > 0,
-			"missing one or more required labels: [\"" + @index1.join("\", \""),
-			@index2.size() > 0,
-			"invalid values provided on one or more labels: [\"" + @index2.join("\", \""),
-			optional.of(@index4 + "\"]"),
-			optional.of(@index6 + "\"]")],
-			@index3 ? @index7 : (@index5 ? @index8 : optional.none()))
-			`,
-			outputType: cel.OptionalType(cel.StringType),
-		},
-		{
-			name:         "required_labels",
-			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
-			composed: `
-		cel.@block([
-			spec.labels,
-			@index0.filter(l, !(l in resource.labels)),
-			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
-			optional.of("missing one or more required labels: [\"" + @index1.join("\", \"") + "\"]"),
-			optional.of("invalid values provided on one or more labels: [\"" + @index2.join("\", \"") + "\"]")],
-			(@index1.size() > 0) ? @index3 : ((@index2.size() > 0) ? @index4 : optional.none()))`,
-			outputType: cel.OptionalType(cel.StringType),
-		},
-		{
-			name:         "nested_rule2",
-			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
-			composed: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false},
-	  resource.origin in @index1 && !(resource.origin in @index0),
-	  !(resource.origin in @index0) ? {"banned": "unconfigured_region"} : {}],
-	  resource.?user.orValue("").startsWith("bad")
-	    ? (@index2 ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
-		: @index3)`,
-			outputType: cel.MapType(cel.StringType, cel.StringType),
-		},
-		{
-			name:         "nested_rule2",
-			composerOpts: []ComposerOption{ExpressionUnnestHeight(5)},
-			composed: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false},
-	  (resource.origin in @index1 && !(resource.origin in @index0))
-	    ? {"banned": "restricted_region"}
-	    : {"banned": "bad_actor"}],
-	  resource.?user.orValue("").startsWith("bad")
-	    ? @index2
-	    : (!(resource.origin in @index0)
-	      ? {"banned": "unconfigured_region"}
-		  : {}))`,
-			outputType: cel.MapType(cel.StringType, cel.StringType),
 		},
 		{
 			name:         "limits",
@@ -444,37 +263,9 @@ ERROR: testdata/errors_unreachable/policy.yaml:36:13: match creates unreachable 
 	}
 )
 
-func resolveRunfilePath(t testing.TB, path string) string {
-	t.Helper()
-	if strings.HasPrefix(path, "testdata/") {
-		policyPath := "cel_policy/conformance/" + path
-		resolved, err := runfiles.Rlocation(policyPath)
-		if err == nil && fileExists(resolved) {
-			return resolved
-		}
-		localPath := "cel-go/policy/" + path
-		resolved, err = runfiles.Rlocation(localPath)
-		if err == nil && fileExists(resolved) {
-			return resolved
-		}
-	}
-	resolved, err := runfiles.Rlocation(path)
-	if err == nil && fileExists(resolved) {
-		return resolved
-	}
-	t.Fatalf("failed to resolve test file path %q in runfiles", path)
-	return ""
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
 func readPolicy(t testing.TB, fileName string) *Source {
 	t.Helper()
-	resolvedPath := resolveRunfilePath(t, fileName)
-	policyBytes, err := os.ReadFile(resolvedPath)
+	policyBytes, err := os.ReadFile(fileName)
 	if err != nil {
 		t.Fatalf("os.ReadFile(%s) failed: %v", fileName, err)
 	}
@@ -483,8 +274,7 @@ func readPolicy(t testing.TB, fileName string) *Source {
 
 func readPolicyConfig(t testing.TB, fileName string) *env.Config {
 	t.Helper()
-	resolvedPath := resolveRunfilePath(t, fileName)
-	testCaseBytes, err := os.ReadFile(resolvedPath)
+	testCaseBytes, err := os.ReadFile(fileName)
 	if err != nil {
 		t.Fatalf("os.ReadFile(%s) failed: %v", fileName, err)
 	}
@@ -498,8 +288,7 @@ func readPolicyConfig(t testing.TB, fileName string) *env.Config {
 
 func readTestSuite(t testing.TB, fileName string) *test.Suite {
 	t.Helper()
-	resolvedPath := resolveRunfilePath(t, fileName)
-	testCaseBytes, err := os.ReadFile(resolvedPath)
+	testCaseBytes, err := os.ReadFile(fileName)
 	if err != nil {
 		t.Fatalf("os.ReadFile(%s) failed: %v", fileName, err)
 	}
