@@ -163,9 +163,9 @@ func TestCompiledRuleHasOptionalOutput(t *testing.T) {
 }
 
 func TestMaxNestedExpressions_Error(t *testing.T) {
-	policyName := "limits"
-	wantError := `ERROR: testdata/limits/policy.yaml:15:8: error configuring compiler option: nested expression limit must be non-negative, non-zero value: -1
- | name: "limits"
+	policyName := "required_labels"
+	wantError := `ERROR: testdata/required_labels/policy.yaml:15:8: error configuring compiler option: nested expression limit must be non-negative, non-zero value: -1
+ | name: "required_labels"
  | .......^`
 	policy := parsePolicy(t, policyName, []ParserOption{})
 	_, _, iss := compile(t, policyName, policy, []cel.EnvOption{}, []CompilerOption{MaxNestedExpressions(-1)})
