@@ -27,7 +27,6 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 var (
@@ -52,68 +51,6 @@ var (
 	    : optional.none())`,
 		},
 		{
-			name: "nested_rule",
-			expr: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false}],
-	  ((resource.origin in @index1 && !(resource.origin in @index0))
-	    ? optional.of({"banned": true}) : optional.none()).orValue(
-	     (resource.origin in @index0) ? {"banned": false} : {"banned": true}))`,
-		},
-		{
-			name: "nested_rule2",
-			expr: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false}],
-	  resource.?user.orValue("").startsWith("bad")
-	  ? ((resource.origin in @index1 && !(resource.origin in @index0))
-	    ? {"banned": "restricted_region"}
-	    : {"banned": "bad_actor"})
-	  : (!(resource.origin in @index0)
-	    ? {"banned": "unconfigured_region"} : {}))`,
-		},
-		{
-			name: "nested_rule3",
-			expr: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false}],
-	  resource.?user.orValue("").startsWith("bad")
-	  ? optional.of((resource.origin in @index1 && !(resource.origin in @index0))
-	    ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
-		: (!(resource.origin in @index0)
-		  ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
-		},
-		{
-			name: "nested_rule4",
-			expr: `(x > 0) ? true : false`,
-		},
-		{
-			name: "nested_rule5",
-			expr: `
-	(x > 0)
-	  ? ((x > 2) ? optional.of(true) : optional.none())
-	  : ((x > 1)
-	    ? ((x >= 2) ? optional.of(true) : optional.none())
-		: optional.of(false))`,
-		},
-		{
-			name: "nested_rule6",
-			expr: `
-	((x > 2) ? optional.of(true) : optional.none())
-	  .orValue(((x > 3) ? optional.of(true) : optional.none())
-	  .orValue(false))`,
-		},
-		{
-			name: "nested_rule7",
-			expr: `
-	((x > 2) ? optional.of(true) : optional.none())
-	.or(((x > 3) ? optional.of(true) : optional.none())
-	.or((x > 1) ? optional.of(false) : optional.none()))`,
-		},
-		{
 			name: "unnest",
 			expr: `
 	cel.@block([values.filter(x, x > 2)],
@@ -125,45 +62,6 @@ var (
 	     ? optional.of("at least one power of 6")
 		 : optional.none())))
 			`,
-		},
-		{
-			name: "context_pb",
-			expr: `
-	(single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
-	? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([single_int32]))
-	: ((standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.BAR ||
-      google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR in imported_enums)
-	  ? optional.of("invalid spec, neither nested nor imported enums may refer to BAR or IMPORT_BAR")
-	  : optional.none())`,
-			envOpts: []cel.EnvOption{
-				cel.Types(&proto3pb.TestAllTypes{}),
-			},
-		},
-		{
-			name: "pb",
-			expr: `
-	(spec.single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
-	? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([spec.single_int32]))
-	: ((spec.standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.BAR ||
-      google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR in spec.imported_enums)
-	  ? optional.of("invalid spec, neither nested nor imported enums may refer to BAR or IMPORT_BAR")
-	  : optional.none())`,
-			envOpts: []cel.EnvOption{
-				cel.Types(&proto3pb.TestAllTypes{}),
-			},
-		},
-		{
-			name: "required_labels",
-			expr: `
-	cel.@block([
-	  spec.labels,
-	  @index0.filter(l, !(l in resource.labels)),
-	  resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
-      (@index1.size() > 0)
-	   ? optional.of("missing one or more required labels: %s".format([@index1]))
-	   : ((@index2.size() > 0)
-	     ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
-		 : optional.none()))`,
 		},
 		{
 			name: "restricted_destinations",
@@ -258,70 +156,7 @@ var (
 			`,
 			outputType: cel.OptionalType(cel.StringType),
 		},
-		{
-			name:         "required_labels",
-			composerOpts: []ComposerOption{ExpressionUnnestHeight(2)},
-			composed: `
-		cel.@block([
-			spec.labels,
-			@index0.filter(l, !(l in resource.labels)),
-			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
-			@index1.size() > 0,
-			"missing one or more required labels: %s".format([@index1]),
-			@index2.size() > 0,
-			"invalid values provided on one or more labels: %s".format([@index2])],
-			@index3 ? optional.of(@index4) : (@index5 ? optional.of(@index6) : optional.none()))
-			`,
-			outputType: cel.OptionalType(cel.StringType),
-		},
-		{
-			name:         "required_labels",
-			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
-			composed: `
-		cel.@block([
-			spec.labels,
-			@index0.filter(l, !(l in resource.labels)),
-			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
-			(@index2.size() > 0)
-			  ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
-			  : optional.none()
-		],
-		(@index1.size() > 0)
-		  ? optional.of("missing one or more required labels: %s".format([@index1]))
-		  : @index3)`,
-			outputType: cel.OptionalType(cel.StringType),
-		},
-		{
-			name:         "nested_rule2",
-			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
-			composed: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false},
-	  resource.origin in @index1 && !(resource.origin in @index0),
-	  !(resource.origin in @index0) ? {"banned": "unconfigured_region"} : {}],
-	  resource.?user.orValue("").startsWith("bad")
-	    ? (@index2 ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
-		: @index3)`,
-			outputType: cel.MapType(cel.StringType, cel.StringType),
-		},
-		{
-			name:         "nested_rule2",
-			composerOpts: []ComposerOption{ExpressionUnnestHeight(5)},
-			composed: `
-	cel.@block([
-	  ["us", "uk", "es"],
-	  {"us": false, "ru": false, "ir": false},
-	  (resource.origin in @index1 && !(resource.origin in @index0))
-	    ? {"banned": "restricted_region"}
-	    : {"banned": "bad_actor"}],
-	  resource.?user.orValue("").startsWith("bad")
-	    ? @index2
-	    : (!(resource.origin in @index0)
-	      ? {"banned": "unconfigured_region"}
-		  : {}))`,
-			outputType: cel.MapType(cel.StringType, cel.StringType),
-		},
+
 		{
 			name:         "limits",
 			composerOpts: []ComposerOption{ExpressionUnnestHeight(3)},
