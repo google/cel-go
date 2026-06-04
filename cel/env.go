@@ -403,6 +403,16 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 		return nil, NewIssuesWithSourceInfo(errs, ast.NativeRep().SourceInfo())
 	}
 
+	// Guard against ASTs that bypass the parser depth limit (e.g. loaded via
+	// ParsedExprToAst / CheckedExprToAst), since later recursive checking
+	// would otherwise risk a Go stack overflow on adversarially deep inputs.
+	if celast.ExceedsMaxDepth(ast.NativeRep().Expr(), celast.MaxNestingDepth) {
+		errs := common.NewErrors(ast.Source())
+		errs.ReportErrorString(common.NoLocation,
+			fmt.Sprintf("input exceeds maximum expression nesting depth: %d", celast.MaxNestingDepth))
+		return nil, NewIssuesWithSourceInfo(errs, ast.NativeRep().SourceInfo())
+	}
+
 	checked, errs := checker.Check(ast.NativeRep(), ast.Source(), chk)
 	if len(errs.GetErrors()) > 0 {
 		return nil, NewIssuesWithSourceInfo(errs, ast.NativeRep().SourceInfo())
@@ -693,6 +703,13 @@ func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
 // PlanProgram generates an evaluable instance of the AST in the go-native representation within
 // the environment (Env).
 func (e *Env) PlanProgram(a *celast.AST, opts ...ProgramOption) (Program, error) {
+	// Guard against ASTs that bypass the parser depth limit (e.g. loaded via
+	// ParsedExprToAst / CheckedExprToAst), since later recursive planning and
+	// evaluation would otherwise risk a Go stack overflow on adversarially
+	// deep inputs.
+	if a != nil && celast.ExceedsMaxDepth(a.Expr(), celast.MaxNestingDepth) {
+		return nil, fmt.Errorf("input exceeds maximum expression nesting depth: %d", celast.MaxNestingDepth)
+	}
 	optSet := e.progOpts
 	if len(opts) != 0 {
 		mergedOpts := []ProgramOption{}

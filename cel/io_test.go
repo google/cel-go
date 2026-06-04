@@ -316,3 +316,61 @@ func TestCheckedExprToAstMissingInfo(t *testing.T) {
 		t.Fatalf("ast2.ResultType() got %v, wanted 'int'", ast.ResultType())
 	}
 }
+
+func TestLoadedAstDepthLimit(t *testing.T) {
+	env, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+
+	// Sanity check: a shallow parsed expression still checks and plans clean.
+	shallow, iss := env.Parse("1 + 2")
+	if iss.Err() != nil {
+		t.Fatalf("Parse('1 + 2') failed: %v", iss.Err())
+	}
+	if _, iss := env.Check(shallow); iss.Err() != nil {
+		t.Fatalf("Check(shallow) failed: %v", iss.Err())
+	}
+	if _, err := env.Program(shallow); err != nil {
+		t.Fatalf("Program(shallow) failed: %v", err)
+	}
+
+	// Build a synthetic deeply nested AST (depth ~300) using iteratively
+	// stacked unary `!` calls, well above the 250 default but far below the
+	// Go stack limit so the test itself never crashes.
+	const depth = 300
+	expr := &exprpb.Expr{
+		Id: 1,
+		ExprKind: &exprpb.Expr_ConstExpr{
+			ConstExpr: &exprpb.Constant{
+				ConstantKind: &exprpb.Constant_BoolValue{BoolValue: true},
+			},
+		},
+	}
+	for i := 0; i < depth; i++ {
+		expr = &exprpb.Expr{
+			Id: int64(i + 2),
+			ExprKind: &exprpb.Expr_CallExpr{
+				CallExpr: &exprpb.Expr_Call{
+					Function: operators.LogicalNot,
+					Args:     []*exprpb.Expr{expr},
+				},
+			},
+		}
+	}
+	deepAst := ParsedExprToAst(&exprpb.ParsedExpr{Expr: expr})
+
+	_, iss = env.Check(deepAst)
+	if iss == nil || iss.Err() == nil {
+		t.Fatalf("Check(deepAst) expected an error, got nil")
+	}
+	if !strings.Contains(iss.Err().Error(), "maximum expression nesting depth") {
+		t.Errorf("Check(deepAst) error = %v, want it to mention 'maximum expression nesting depth'", iss.Err())
+	}
+
+	if _, err := env.Program(deepAst); err == nil {
+		t.Fatalf("Program(deepAst) expected an error, got nil")
+	} else if !strings.Contains(err.Error(), "maximum expression nesting depth") {
+		t.Errorf("Program(deepAst) error = %v, want it to mention 'maximum expression nesting depth'", err)
+	}
+}
