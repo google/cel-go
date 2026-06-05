@@ -14,12 +14,6 @@
 
 package ast
 
-// MaxNestingDepth is the default maximum expression nesting depth applied to
-// ASTs that enter through non-parser ingestion paths. It mirrors the parser's
-// default maxRecursionDepth so loaded ASTs are validated against the same
-// bound as ASTs produced from CEL source.
-const MaxNestingDepth = 250
-
 // ExceedsMaxDepth reports whether the given expression nests deeper than
 // maxDepth. The traversal itself is bounded: it never recurses past
 // maxDepth+1 levels, so it is safe to call on adversarially deep inputs that

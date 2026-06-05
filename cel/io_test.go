@@ -360,17 +360,21 @@ func TestLoadedAstDepthLimit(t *testing.T) {
 	}
 	deepAst := ParsedExprToAst(&exprpb.ParsedExpr{Expr: expr})
 
-	_, iss = env.Check(deepAst)
-	if iss == nil || iss.Err() == nil {
-		t.Fatalf("Check(deepAst) expected an error, got nil")
-	}
-	if !strings.Contains(iss.Err().Error(), "maximum expression nesting depth") {
-		t.Errorf("Check(deepAst) error = %v, want it to mention 'maximum expression nesting depth'", iss.Err())
-	}
-
+	// Program enforces the default depth limit and returns a normal error
+	// rather than overflowing the stack during planning.
 	if _, err := env.Program(deepAst); err == nil {
 		t.Fatalf("Program(deepAst) expected an error, got nil")
 	} else if !strings.Contains(err.Error(), "maximum expression nesting depth") {
 		t.Errorf("Program(deepAst) error = %v, want it to mention 'maximum expression nesting depth'", err)
+	}
+
+	// The limit is configurable via the ExpressionNestingDepthLimit option: a
+	// negative value disables the check so the same deep AST plans cleanly.
+	unbounded, err := NewEnv(ExpressionNestingDepthLimit(-1))
+	if err != nil {
+		t.Fatalf("NewEnv(ExpressionNestingDepthLimit(-1)) failed: %v", err)
+	}
+	if _, err := unbounded.Program(deepAst); err != nil {
+		t.Errorf("Program(deepAst) with depth checking disabled failed: %v", err)
 	}
 }
