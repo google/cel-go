@@ -18,19 +18,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
-
-	"github.com/google/cel-go/common/functions"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 )
-
-// AsyncObserver provides callbacks for monitoring the lifecycle of asynchronous function calls.
-type AsyncObserver interface {
-	// OnCallStarted is called when an asynchronous function is first launched.
-	OnCallStarted(callID int64, function, overload string, args []ref.Val)
-	// OnCallFinished is called when an asynchronous function completes.
-	OnCallFinished(callID int64, function, overload string, res ref.Val)
-}
 
 // evalContext contains the stateful information needed for a single evaluation.
 //
@@ -55,23 +43,11 @@ type evalContext struct {
 	// costs provides the context for tracking the evaluation costs.
 	costs *CostTracker
 
-	// asyncCalls provides the context for tracking async call states.
-	asyncCalls *asyncCallStateTracker
-
 	// ctx is the context for async call implementations to use.
 	ctx context.Context
 
 	// cancel cancels the context when the evaluation is finished.
 	cancel context.CancelFunc
-
-	// completions channel for asynchronous function calls to send their call ID to when completed.
-	completions chan<- int64
-
-	// observer for monitoring async calls.
-	observer AsyncObserver
-
-	// semaphore for limiting concurrency.
-	semaphore chan struct{}
 }
 
 // ExecutionFrame provides the context for a single evaluation of an expression.
@@ -102,7 +78,6 @@ func (f *ExecutionFrame) SetContext(ctx context.Context, interruptCheckFrequency
 		f.ctx = evalContextPool.Get().(*evalContext)
 	}
 	f.ctx.ctx, f.ctx.cancel = context.WithCancel(ctx)
-	f.ctx.asyncCalls = asyncCallStateTrackerPool.create()
 	f.ctx.interrupt = ctx.Done()
 	f.ctx.interruptCheckFrequency = interruptCheckFrequency
 	f.ctx.interruptCheckCount.Store(0)
@@ -117,16 +92,12 @@ func (f *ExecutionFrame) Close() {
 			f.ctx.cancel = nil
 		}
 		f.ctx.ctx = nil
-		f.ctx.completions = nil
-		asyncCallStateTrackerPool.release(f.ctx.asyncCalls)
-		f.ctx.asyncCalls = nil
 		f.ctx.interrupt = nil
 		f.ctx.state = nil
 		f.ctx.costs = nil
 		f.ctx.interrupted.Store(false)
 		f.ctx.interruptCheckCount.Store(0)
 		f.ctx.interruptCheckFrequency = 0
-		f.ctx.observer = nil
 		evalContextPool.Put(f.ctx)
 		f.ctx = nil
 	}
@@ -134,13 +105,6 @@ func (f *ExecutionFrame) Close() {
 	activationStack.release(f.Activation)
 	f.Activation = nil
 	frameStack.Put(f)
-}
-
-// SetCompletions configures a channel to receive completions when asynchronous evaluations finish.
-func (f *ExecutionFrame) SetCompletions(ch chan<- int64) {
-	if f.ctx != nil {
-		f.ctx.completions = ch
-	}
 }
 
 // push pushes the given activation onto the activation stack and returns the new frame.
@@ -207,222 +171,6 @@ func (f *ExecutionFrame) CheckInterrupt() bool {
 	return false
 }
 
-// asyncCallStateTracker manages async call states across frames
-type asyncCallStateTracker struct {
-	mu           sync.RWMutex
-	calls        map[int64]*asyncCallState
-	callsByID    map[int64]*asyncCallState
-	nextCallID   atomic.Int64
-	pendingCalls atomic.Int32
-}
-
-func newAsyncCallStateTracker() *asyncCallStateTracker {
-	return &asyncCallStateTracker{
-		calls:     make(map[int64]*asyncCallState),
-		callsByID: make(map[int64]*asyncCallState),
-	}
-}
-
-func (t *asyncCallStateTracker) getOrCreate(id int64, function, overload string, argVals []ref.Val, impl functions.AsyncOp, completions chan<- int64) *asyncCallState {
-	t.mu.RLock()
-	acs, ok := t.calls[id]
-	t.mu.RUnlock()
-
-	potentialState := newAsyncCallState(id, function, overload, argVals, impl)
-	if ok && acs.equals(potentialState) {
-		return acs
-	}
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	// Check again in case it was created while waiting for the lock
-	if acs, ok := t.calls[id]; ok && acs.equals(potentialState) {
-		return acs
-	}
-
-	// Set a new call ID for this async call.
-	callID := t.nextCallID.Add(1)
-	potentialState.callID = callID
-	potentialState.completions = completions
-	t.calls[potentialState.id] = potentialState
-	t.callsByID[callID] = potentialState
-	t.pendingCalls.Add(1)
-	return potentialState
-}
-
-func (t *asyncCallStateTracker) getByID(callID int64) *asyncCallState {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	return t.callsByID[callID]
-}
-
-func (t *asyncCallStateTracker) pendingCount() int {
-	return int(t.pendingCalls.Load())
-}
-
-func (t *asyncCallStateTracker) NotifyCompletion(callID int64) {
-	t.pendingCalls.Add(-1)
-}
-
-// ComputeResult tracks and computes the result of the given asynchronous function.
-func (f *ExecutionFrame) ComputeResult(id int64, function, overload string, impl functions.AsyncOp, argVals []ref.Val) ref.Val {
-	if f.ctx == nil || f.ctx.asyncCalls == nil {
-		return types.NewErrWithNodeID(id, "async call tracking is not initialized")
-	}
-	acs := f.ctx.asyncCalls.getOrCreate(id, function, overload, argVals, impl, f.ctx.completions)
-	return acs.call(f.ctx.ctx, f.ctx.observer, f.ctx.semaphore)
-}
-
-// AsyncCall describes a pending or completed asynchronous function call.
-type AsyncCall interface {
-	// CallID returns the unique identifier for this async call invocation.
-	CallID() int64
-	// Function returns the name of the function being called.
-	Function() string
-	// Overload returns the specific overload ID being invoked.
-	Overload() string
-}
-
-// PendingAsyncCalls returns the number of async function calls that have been launched
-// but have not yet returned a result.
-func (f *ExecutionFrame) PendingAsyncCalls() int {
-	if f.ctx == nil || f.ctx.asyncCalls == nil {
-		return 0
-	}
-	return f.ctx.asyncCalls.pendingCount()
-}
-
-// AsyncCall returns the state of an async call by its callID, or nil if not found.
-func (f *ExecutionFrame) AsyncCall(callID int64) AsyncCall {
-	if f.ctx == nil || f.ctx.asyncCalls == nil {
-		return nil
-	}
-	return f.ctx.asyncCalls.getByID(callID)
-}
-
-// NotifyCompletion notifies the execution frame that an async call has completed.
-func (f *ExecutionFrame) NotifyCompletion(callID int64) {
-	if f.ctx != nil && f.ctx.asyncCalls != nil {
-		f.ctx.asyncCalls.NotifyCompletion(callID)
-	}
-}
-
-// SetAsyncObserver sets the observer for monitoring asynchronous function calls.
-func (f *ExecutionFrame) SetAsyncObserver(observer AsyncObserver) {
-	if f.ctx != nil {
-		f.ctx.observer = observer
-	}
-}
-
-// SetAsyncMaxConcurrency sets the maximum concurrency for asynchronous function calls.
-func (f *ExecutionFrame) SetAsyncMaxConcurrency(n int) {
-	if f.ctx != nil {
-		if n > 0 {
-			f.ctx.semaphore = make(chan struct{}, n)
-		} else {
-			f.ctx.semaphore = nil
-		}
-	}
-}
-
-func newAsyncCallState(id int64, function, overload string, argVals []ref.Val, impl functions.AsyncOp) *asyncCallState {
-	return &asyncCallState{
-		id:       id,
-		function: function,
-		overload: overload,
-		argVals:  argVals,
-		impl:     impl,
-	}
-}
-
-// asyncCallState is used to track the results of function calls across multiple iterations.
-type asyncCallState struct {
-	id       int64
-	callID   int64
-	function string
-	overload string
-	argVals  []ref.Val
-	impl     functions.AsyncOp
-
-	once   sync.Once
-	mu     sync.RWMutex
-	result ref.Val
-
-	completions chan<- int64
-}
-
-// CallID returns the unique identifier for this async call invocation.
-func (acs *asyncCallState) CallID() int64 {
-	return acs.callID
-}
-
-// Function returns the name of the function being called.
-func (acs *asyncCallState) Function() string {
-	return acs.function
-}
-
-// Overload returns the specific overload ID being invoked.
-func (acs *asyncCallState) Overload() string {
-	return acs.overload
-}
-
-func (acs *asyncCallState) call(ctx context.Context, observer AsyncObserver, semaphore chan struct{}) ref.Val {
-	acs.once.Do(func() {
-		if observer != nil {
-			observer.OnCallStarted(acs.callID, acs.function, acs.overload, acs.argVals)
-		}
-		go func() {
-			if semaphore != nil {
-				select {
-				case semaphore <- struct{}{}:
-					defer func() { <-semaphore }()
-				case <-ctx.Done():
-					return
-				}
-			}
-			ch := acs.impl(ctx, acs.argVals...)
-			select {
-			case res := <-ch:
-				acs.mu.Lock()
-				acs.result = res
-				acs.mu.Unlock()
-				if observer != nil {
-					observer.OnCallFinished(acs.callID, acs.function, acs.overload, res)
-				}
-				if acs.completions != nil {
-					select {
-					case acs.completions <- acs.callID:
-					case <-ctx.Done():
-					}
-				}
-			case <-ctx.Done():
-			}
-		}()
-	})
-
-	acs.mu.RLock()
-	defer acs.mu.RUnlock()
-	if acs.result != nil {
-		return acs.result
-	}
-	return types.NewUnknown(acs.callID, nil)
-}
-
-func (acs *asyncCallState) equals(other *asyncCallState) bool {
-	if acs == nil || other == nil {
-		return false
-	}
-	if acs.function != other.function || acs.overload != other.overload {
-		return false
-	}
-	for i, v := range acs.argVals {
-		if types.Equal(v, other.argVals[i]) != types.True {
-			return false
-		}
-	}
-	return true
-}
-
 // frameStack provides a synchronized pool of ExecutionFrames.
 var frameStack = &sync.Pool{
 	New: func() any {
@@ -468,42 +216,6 @@ func newActivationPool() *activationStackPool {
 	}
 }
 
-type asyncCallStateTrackerPoolStruct struct {
-	sync.Pool
-}
-
-func (pool *asyncCallStateTrackerPoolStruct) create() *asyncCallStateTracker {
-	return pool.Get().(*asyncCallStateTracker)
-}
-
-func (pool *asyncCallStateTrackerPoolStruct) release(tracker *asyncCallStateTracker) {
-	if tracker == nil {
-		return
-	}
-	tracker.mu.Lock()
-	for k := range tracker.calls {
-		delete(tracker.calls, k)
-	}
-	for k := range tracker.callsByID {
-		delete(tracker.callsByID, k)
-	}
-	tracker.pendingCalls.Store(0)
-	tracker.nextCallID.Store(0)
-	tracker.mu.Unlock()
-	pool.Pool.Put(tracker)
-}
-
-func newAsyncCallTrackerPool() *asyncCallStateTrackerPoolStruct {
-	return &asyncCallStateTrackerPoolStruct{
-		Pool: sync.Pool{
-			New: func() any {
-				return newAsyncCallStateTracker()
-			},
-		},
-	}
-}
-
 var (
 	activationStack           = newActivationPool()
-	asyncCallStateTrackerPool = newAsyncCallTrackerPool()
 )

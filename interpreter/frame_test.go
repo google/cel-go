@@ -17,24 +17,67 @@ package interpreter
 import (
 	"context"
 	"testing"
-	"time"
-
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 )
 
-func TestFrameInterrupt(t *testing.T) {
+func TestFrameCheckInterrupt(t *testing.T) {
 	tests := []struct {
-		name        string
-		concurrency int
+		name     string
+		setupCtx func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int))
+		checks   []bool
 	}{
 		{
-			name:        "without semaphores",
-			concurrency: 0,
+			name:   "nil context",
+			checks: []bool{false, false},
 		},
 		{
-			name:        "with semaphores",
-			concurrency: 1,
+			name: "zero frequency not canceled",
+			setupCtx: func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {
+				f.SetContext(ctx, 0)
+				return nil, nil
+			},
+			checks: []bool{false, false},
+		},
+		{
+			name: "frequency one not canceled",
+			setupCtx: func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {
+				f.SetContext(ctx, 1)
+				return nil, nil
+			},
+			checks: []bool{false, false},
+		},
+		{
+			name: "frequency one canceled dynamically",
+			setupCtx: func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {
+				c, cancel := context.WithCancel(ctx)
+				f.SetContext(c, 1)
+				return nil, func(step int) {
+					if step == 1 {
+						cancel()
+					}
+				}
+			},
+			checks: []bool{false, true, true},
+		},
+		{
+			name: "frequency two not canceled",
+			setupCtx: func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {
+				f.SetContext(ctx, 2)
+				return nil, nil
+			},
+			checks: []bool{false, false, false},
+		},
+		{
+			name: "frequency two canceled dynamically",
+			setupCtx: func(ctx context.Context, f *ExecutionFrame) (context.CancelFunc, func(int)) {
+				c, cancel := context.WithCancel(ctx)
+				f.SetContext(c, 2)
+				return nil, func(step int) {
+					if step == 1 {
+						cancel()
+					}
+				}
+			},
+			checks: []bool{false, true, true},
 		},
 	}
 
@@ -43,397 +86,293 @@ func TestFrameInterrupt(t *testing.T) {
 			frame := NewExecutionFrame(EmptyActivation())
 			defer frame.Close()
 
-			// Test CheckInterrupt with nil ctx
-			if frame.CheckInterrupt() {
-				t.Error("CheckInterrupt() returned true for nil ctx")
+			var cleanup context.CancelFunc
+			var stepHook func(int)
+			if tc.setupCtx != nil {
+				cleanup, stepHook = tc.setupCtx(context.Background(), frame)
+			}
+			if cleanup != nil {
+				defer cleanup()
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			frame.SetContext(ctx, 1)
-			frame.SetAsyncMaxConcurrency(tc.concurrency)
-
-			// First check with active context should return false
-			if frame.CheckInterrupt() {
-				t.Error("frame.CheckInterrupt() returned true, wanted false")
-			}
-
-			// Cancel context to trigger interrupt
-			cancel()
-
-			// Second check should observe cancellation and return true
-			if !frame.CheckInterrupt() {
-				t.Error("frame.CheckInterrupt() returned false, wanted true")
-			}
-
-			// Third check should hit the cached/loaded interrupted flag and return true
-			if !frame.CheckInterrupt() {
-				t.Error("frame.CheckInterrupt() (cached) returned false, wanted true")
+			for i, want := range tc.checks {
+				if stepHook != nil {
+					stepHook(i)
+				}
+				got := frame.CheckInterrupt()
+				if got != want {
+					t.Errorf("CheckInterrupt() call %d got %t, want %t", i+1, got, want)
+				}
 			}
 		})
 	}
-
-	t.Run("check frequency not triggered", func(t *testing.T) {
-		frame := NewExecutionFrame(EmptyActivation())
-		defer frame.Close()
-
-		frame.SetContext(context.Background(), 2)
-		// first call adds 1 to count -> 1%2 != 0 -> returns false
-		if frame.CheckInterrupt() {
-			t.Error("CheckInterrupt() returned true unexpectedly")
-		}
-	})
 }
 
-func TestFrameAsyncErrors(t *testing.T) {
-	frame := NewExecutionFrame(EmptyActivation())
-	defer frame.Close()
-
-	// ComputeResult without SetContext should return an error
-	res := frame.ComputeResult(1, "test", "test", nil, nil)
-	if !types.IsError(res) {
-		t.Errorf("ComputeResult() returned %v, wanted error", res)
+func TestFrameResolveName(t *testing.T) {
+	baseAct, err := NewActivation(map[string]any{"x": 1})
+	if err != nil {
+		t.Fatalf("NewActivation(x) failed: %v", err)
 	}
-}
-
-func TestFrameCompletions(t *testing.T) {
-	frame := NewExecutionFrame(EmptyActivation())
-	defer frame.Close()
-
-	ctx := context.Background()
-	frame.SetContext(ctx, 1)
-
-	completionCh := make(chan int64, 1)
-	frame.SetCompletions(completionCh)
-
-	syncCh := make(chan ref.Val, 1)
-	impl := func(ctx context.Context, args ...ref.Val) <-chan ref.Val {
-		return syncCh
+	childAct, err := NewActivation(map[string]any{"y": 2})
+	if err != nil {
+		t.Fatalf("NewActivation(y) failed: %v", err)
 	}
-
-	// First call returns unknown
-	res := frame.ComputeResult(10, "test", "test", impl, nil)
-	if !types.IsUnknown(res) {
-		t.Fatalf("ComputeResult() returned %v, wanted unknown", res)
-	}
-
-	// Send result
-	syncCh <- types.String("done")
-
-	// Wait for completion signal
-	select {
-	case id := <-completionCh:
-		if id != res.(*types.Unknown).IDs()[0] {
-			t.Errorf("completion signal ID mismatch: got %d, wanted %d", id, res.(*types.Unknown).IDs()[0])
-		}
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for completion signal")
-	}
-
-	// Second call should return the result
-	res2 := frame.ComputeResult(10, "test", "test", impl, nil)
-	if res2.Equal(types.String("done")) != types.True {
-		t.Errorf("ComputeResult() returned %v, wanted 'done'", res2)
-	}
-}
-
-func TestEvalAsyncFunc(t *testing.T) {
-	frame := NewExecutionFrame(EmptyActivation())
-	defer frame.Close()
-	frame.SetContext(context.Background(), 1)
-
-	impl := func(ctx context.Context, args ...ref.Val) <-chan ref.Val {
-		ch := make(chan ref.Val, 1)
-		ch <- types.Int(args[0].(types.Int) + 1)
-		return ch
-	}
-
-	fn := &evalAsyncFunc{
-		id:       1,
-		function: "inc",
-		overload: "inc_int",
-		args:     []InterpretableV2{NewConstValue(1, types.Int(10))},
-		impl:     impl,
-	}
-
-	// First exec triggers the call
-	res := fn.Exec(frame)
-	if !types.IsUnknown(res) {
-		t.Fatalf("Exec() returned %v, wanted unknown", res)
-	}
-
-	// Test Args()
-	if len(fn.Args()) != 1 {
-		t.Errorf("Args() returned %d, wanted 1", len(fn.Args()))
-	}
-
-	// Wait for async result (it's buffered in the impl channel in this test)
-	time.Sleep(10 * time.Millisecond)
-
-	// Test Eval() returns result
-	res3 := fn.Eval(frame)
-	if res3.Equal(types.Int(11)) != types.True {
-		t.Errorf("Eval() returned %v, wanted 11", res3)
-	}
-}
-
-func TestEvalAsyncFuncShortCircuit(t *testing.T) {
-	frame := NewExecutionFrame(EmptyActivation())
-	defer frame.Close()
-	frame.SetContext(context.Background(), 1)
-
-	fn := &evalAsyncFunc{
-		id:       1,
-		function: "inc",
-		args:     []InterpretableV2{NewConstValue(2, types.NewErr("bad arg"))},
-	}
-
-	res := fn.Exec(frame)
-	if !types.IsError(res) {
-		t.Errorf("Exec() returned %v, wanted error", res)
-	}
-
-	fn.args = []InterpretableV2{NewConstValue(3, types.NewUnknown(4, nil))}
-	res = fn.Exec(frame)
-	if !types.IsUnknown(res) {
-		t.Errorf("Exec() returned %v, wanted unknown", res)
-	}
-}
-
-type testAsyncObserver struct {
-	startedCalls  int
-	finishedCalls int
-}
-
-func (o *testAsyncObserver) OnCallStarted(callID int64, function, overload string, args []ref.Val) {
-	o.startedCalls++
-}
-
-func (o *testAsyncObserver) OnCallFinished(callID int64, function, overload string, res ref.Val) {
-	o.finishedCalls++
-}
-
-func TestFrameActivationMethods(t *testing.T) {
-	baseAct, _ := NewActivation(map[string]any{"x": 1})
-	frame := NewExecutionFrame(baseAct)
-	defer frame.Close()
-
-	childAct, _ := NewActivation(map[string]any{"y": 2})
-	childFrame := frame.push(childAct)
-
-	// Test ResolveName on childFrame
-	if v, ok := childFrame.ResolveName("y"); !ok || v != 2 {
-		t.Errorf("ResolveName('y') got %v, %v", v, ok)
-	}
-	if v, ok := childFrame.ResolveName("x"); !ok || v != 1 {
-		t.Errorf("ResolveName('x') got %v, %v", v, ok)
-	}
-	if _, ok := childFrame.ResolveName("missing"); ok {
-		t.Errorf("ResolveName('missing') unexpectedly found")
-	}
-
-	// Test Parent(), Unwrap(), AsPartialActivation() on childFrame
-	if childFrame.Parent() == nil {
-		t.Errorf("Parent() returned nil")
-	}
-	if childFrame.Unwrap() == nil {
-		t.Errorf("Unwrap() returned nil")
-	}
-	if _, ok := childFrame.AsPartialActivation(); ok {
-		t.Errorf("AsPartialActivation() unexpectedly true")
-	}
-
-	// Pop back to parent
-	popped := childFrame.pop()
-	if popped != frame {
-		t.Errorf("pop() did not return parent frame")
-	}
-
-	// Test AsPartialActivation returning true when frame wraps a PartialActivation
-	partAct, _ := NewPartialActivation(map[string]any{"z": 3})
-	partFrame := NewExecutionFrame(partAct)
-	defer partFrame.Close()
-	if _, ok := partFrame.AsPartialActivation(); !ok {
-		t.Errorf("AsPartialActivation() returned false for PartialActivation")
-	}
-}
-
-func TestFrameAsyncCallAndObserver(t *testing.T) {
-	frame := NewExecutionFrame(EmptyActivation())
-	defer frame.Close()
-
-	// Calling PendingAsyncCalls, AsyncCall, NotifyCompletion with nil ctx/asyncCalls
-	if count := frame.PendingAsyncCalls(); count != 0 {
-		t.Errorf("PendingAsyncCalls() = %d, wanted 0", count)
-	}
-	if call := frame.AsyncCall(1); call != nil {
-		t.Errorf("AsyncCall() = %v, wanted nil", call)
-	}
-	frame.NotifyCompletion(1) // should be no-op
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	frame.SetContext(ctx, 1)
-
-	obs := &testAsyncObserver{}
-	frame.SetAsyncObserver(obs)
-	frame.SetAsyncMaxConcurrency(1)
-
-	syncCh := make(chan ref.Val, 1)
-	impl := func(ctx context.Context, args ...ref.Val) <-chan ref.Val {
-		return syncCh
-	}
-
-	argVals := []ref.Val{types.String("arg")}
-	res := frame.ComputeResult(100, "fn", "overload", impl, argVals)
-	if !types.IsUnknown(res) {
-		t.Fatalf("ComputeResult() = %v, wanted unknown", res)
-	}
-
-	// Call ComputeResult again with identical parameters to hit cached branch in getOrCreate
-	resCached := frame.ComputeResult(100, "fn", "overload", impl, argVals)
-	if !types.IsUnknown(resCached) {
-		t.Fatalf("ComputeResult() cached = %v, wanted unknown", resCached)
-	}
-
-	if count := frame.PendingAsyncCalls(); count != 1 {
-		t.Errorf("PendingAsyncCalls() = %d, wanted 1", count)
-	}
-
-	callID := res.(*types.Unknown).IDs()[0]
-	asyncCall := frame.AsyncCall(callID)
-	if asyncCall == nil {
-		t.Fatalf("AsyncCall() returned nil")
-	}
-	if asyncCall.CallID() != callID {
-		t.Errorf("CallID() = %d, wanted %d", asyncCall.CallID(), callID)
-	}
-	if asyncCall.Function() != "fn" {
-		t.Errorf("Function() = %s, wanted fn", asyncCall.Function())
-	}
-	if asyncCall.Overload() != "overload" {
-		t.Errorf("Overload() = %s, wanted overload", asyncCall.Overload())
-	}
-
-	// Send result to unblock the original async call
-	syncCh <- types.String("success")
-
-	// Wait for observer to see finished call
-	time.Sleep(20 * time.Millisecond)
-	if obs.startedCalls == 0 {
-		t.Errorf("observer OnCallStarted not called")
-	}
-	if obs.finishedCalls == 0 {
-		t.Errorf("observer OnCallFinished not called")
-	}
-
-	// Test SetAsyncMaxConcurrency(0) resets semaphore
-	frame.SetAsyncMaxConcurrency(0)
-	if frame.ctx.semaphore != nil {
-		t.Errorf("semaphore not set to nil")
-	}
-
-	// Test explicit NotifyCompletion
-	frame.NotifyCompletion(callID)
-}
-
-func TestAsyncCallStateEquals(t *testing.T) {
-	baseAcs := &asyncCallState{
-		function: "fn",
-		overload: "ov",
-		argVals:  []ref.Val{types.Int(1)},
-	}
-	var nilAcs *asyncCallState
 
 	tests := []struct {
-		name     string
-		receiver *asyncCallState
-		other    *asyncCallState
-		want     bool
+		name      string
+		setup     func() *ExecutionFrame
+		varName   string
+		wantVal   any
+		wantFound bool
 	}{
 		{
-			name:     "receiver nil",
-			receiver: nilAcs,
-			other:    baseAcs,
-			want:     false,
+			name: "resolve in base activation",
+			setup: func() *ExecutionFrame {
+				return NewExecutionFrame(baseAct)
+			},
+			varName:   "x",
+			wantVal:   1,
+			wantFound: true,
 		},
 		{
-			name:     "other nil",
-			receiver: baseAcs,
-			other:    nil,
-			want:     false,
+			name: "missing in base activation",
+			setup: func() *ExecutionFrame {
+				return NewExecutionFrame(baseAct)
+			},
+			varName:   "y",
+			wantVal:   nil,
+			wantFound: false,
 		},
 		{
-			name:     "different function",
-			receiver: baseAcs,
-			other:    &asyncCallState{function: "other", overload: "ov", argVals: []ref.Val{types.Int(1)}},
-			want:     false,
+			name: "resolve in child activation",
+			setup: func() *ExecutionFrame {
+				f := NewExecutionFrame(baseAct)
+				return f.push(childAct)
+			},
+			varName:   "y",
+			wantVal:   2,
+			wantFound: true,
 		},
 		{
-			name:     "different overload",
-			receiver: baseAcs,
-			other:    &asyncCallState{function: "fn", overload: "other", argVals: []ref.Val{types.Int(1)}},
-			want:     false,
+			name: "resolve in parent activation from child",
+			setup: func() *ExecutionFrame {
+				f := NewExecutionFrame(baseAct)
+				return f.push(childAct)
+			},
+			varName:   "x",
+			wantVal:   1,
+			wantFound: true,
 		},
 		{
-			name:     "different arg vals",
-			receiver: baseAcs,
-			other:    &asyncCallState{function: "fn", overload: "ov", argVals: []ref.Val{types.Int(2)}},
-			want:     false,
-		},
-		{
-			name:     "identical",
-			receiver: baseAcs,
-			other:    &asyncCallState{function: "fn", overload: "ov", argVals: []ref.Val{types.Int(1)}},
-			want:     true,
+			name: "missing in hierarchical activation",
+			setup: func() *ExecutionFrame {
+				f := NewExecutionFrame(baseAct)
+				return f.push(childAct)
+			},
+			varName:   "z",
+			wantVal:   nil,
+			wantFound: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := tc.receiver.equals(tc.other); got != tc.want {
-				t.Errorf("%v.equals(%v) = %v, wanted %v", tc.receiver, tc.other, got, tc.want)
+			frame := tc.setup()
+			defer func() {
+				curr := frame
+				for curr.parent != nil {
+					curr = curr.pop()
+				}
+				curr.Close()
+			}()
+
+			gotVal, gotFound := frame.ResolveName(tc.varName)
+			if gotFound != tc.wantFound || gotVal != tc.wantVal {
+				t.Errorf("ResolveName(%q) got (%v, %t), want (%v, %t)", tc.varName, gotVal, gotFound, tc.wantVal, tc.wantFound)
 			}
 		})
 	}
 }
 
-func TestFrameAsyncCallContextCancelled(t *testing.T) {
-	frame := NewExecutionFrame(EmptyActivation())
+func TestFrameParent(t *testing.T) {
+	baseAct, err := NewActivation(map[string]any{"x": 1})
+	if err != nil {
+		t.Fatalf("NewActivation(x) failed: %v", err)
+	}
+	childAct, err := NewActivation(map[string]any{"y": 2})
+	if err != nil {
+		t.Fatalf("NewActivation(y) failed: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		setup func() (*ExecutionFrame, func())
+		want  Activation
+	}{
+		{
+			name: "base frame has no parent activation",
+			setup: func() (*ExecutionFrame, func()) {
+				f := NewExecutionFrame(baseAct)
+				return f, func() { f.Close() }
+			},
+			want: nil,
+		},
+		{
+			name: "pushed frame returns parent activation",
+			setup: func() (*ExecutionFrame, func()) {
+				f := NewExecutionFrame(baseAct)
+				child := f.push(childAct)
+				return child, func() {
+					child.pop()
+					f.Close()
+				}
+			},
+			want: baseAct,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			frame, cleanup := tc.setup()
+			defer cleanup()
+
+			if got := frame.Parent(); got != tc.want {
+				t.Errorf("Parent() got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFrameUnwrap(t *testing.T) {
+	baseAct, err := NewActivation(map[string]any{"x": 1})
+	if err != nil {
+		t.Fatalf("NewActivation(x) failed: %v", err)
+	}
+	frame := NewExecutionFrame(baseAct)
 	defer frame.Close()
-	ctx, cancel := context.WithCancel(context.Background())
+
+	if got := frame.Unwrap(); got != baseAct {
+		t.Errorf("Unwrap() got %v, want %v", got, baseAct)
+	}
+
+	childAct, err := NewActivation(map[string]any{"y": 2})
+	if err != nil {
+		t.Fatalf("NewActivation(y) failed: %v", err)
+	}
+	childFrame := frame.push(childAct)
+	defer childFrame.pop()
+
+	if got := childFrame.Unwrap(); got != childFrame.Activation {
+		t.Errorf("Unwrap() got %v, want %v", got, childFrame.Activation)
+	}
+}
+
+func TestFrameAsPartialActivation(t *testing.T) {
+	baseAct, err := NewActivation(map[string]any{"x": 1})
+	if err != nil {
+		t.Fatalf("NewActivation(x) failed: %v", err)
+	}
+	partAct, err := NewPartialActivation(map[string]any{"y": 2})
+	if err != nil {
+		t.Fatalf("NewPartialActivation(y) failed: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		setup     func() *ExecutionFrame
+		wantFound bool
+	}{
+		{
+			name: "non-partial activation returns false",
+			setup: func() *ExecutionFrame {
+				return NewExecutionFrame(baseAct)
+			},
+			wantFound: false,
+		},
+		{
+			name: "partial activation returns true",
+			setup: func() *ExecutionFrame {
+				return NewExecutionFrame(partAct)
+			},
+			wantFound: true,
+		},
+		{
+			name: "hierarchical activation wrapping partial activation returns true",
+			setup: func() *ExecutionFrame {
+				f := NewExecutionFrame(partAct)
+				return f.push(baseAct)
+			},
+			wantFound: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			frame := tc.setup()
+			defer func() {
+				curr := frame
+				for curr.parent != nil {
+					curr = curr.pop()
+				}
+				curr.Close()
+			}()
+
+			gotAct, gotFound := frame.AsPartialActivation()
+			if gotFound != tc.wantFound {
+				t.Errorf("AsPartialActivation() got found=%t, want found=%t", gotFound, tc.wantFound)
+			}
+			if tc.wantFound && gotAct == nil {
+				t.Errorf("AsPartialActivation() returned nil for found partial activation")
+			}
+		})
+	}
+}
+
+func TestFramePushPop(t *testing.T) {
+	baseAct, err := NewActivation(map[string]any{"x": 1})
+	if err != nil {
+		t.Fatalf("NewActivation(x) failed: %v", err)
+	}
+	childAct, err := NewActivation(map[string]any{"y": 2})
+	if err != nil {
+		t.Fatalf("NewActivation(y) failed: %v", err)
+	}
+
+	frame := NewExecutionFrame(baseAct)
+	defer frame.Close()
+
+	childFrame := frame.push(childAct)
+	if childFrame == nil {
+		t.Fatal("push() returned nil")
+	}
+	if childFrame.parent != frame {
+		t.Errorf("push() parent got %v, want %v", childFrame.parent, frame)
+	}
+
+	popped := childFrame.pop()
+	if popped != frame {
+		t.Errorf("pop() got %v, want %v", popped, frame)
+	}
+}
+
+func TestFrameClose(t *testing.T) {
+	frame := NewExecutionFrame(EmptyActivation())
+	ctx := context.Background()
 	frame.SetContext(ctx, 1)
-	frame.SetAsyncMaxConcurrency(1)
 
-	implSlow := func(ctx context.Context, args ...ref.Val) <-chan ref.Val {
-		return make(chan ref.Val) // blocks forever
-	}
-	// First call acquires the semaphore
-	frame.ComputeResult(200, "fn_slow", "overload", implSlow, nil)
+	frameCtx := frame.ctx.ctx
 
-	// Give the first call's goroutine time to acquire the semaphore
-	time.Sleep(5 * time.Millisecond)
-	if len(frame.ctx.semaphore) != 1 {
-		t.Errorf("semaphore length = %d, wanted 1", len(frame.ctx.semaphore))
+	select {
+	case <-frameCtx.Done():
+		t.Fatal("context canceled before Close()")
+	default:
 	}
 
-	// Second call tries to acquire semaphore but it's full, so it blocks in select
-	frame.ComputeResult(201, "fn_cancel", "overload", implSlow, nil)
+	frame.Close()
 
-	// Cancel the context so the second call's goroutine hits case <-ctx.Done(): when acquiring semaphore,
-	// and the first call's goroutine hits case <-ctx.Done(): when waiting on <-ch.
-	cancel()
-
-	// Wait a bit to let goroutines process cancellation
-	time.Sleep(10 * time.Millisecond)
-
-	// Verify cancellation successfully released resources and interrupted evaluation
-	if len(frame.ctx.semaphore) != 0 {
-		t.Errorf("semaphore length after cancel = %d, wanted 0", len(frame.ctx.semaphore))
+	select {
+	case <-frameCtx.Done():
+	default:
+		t.Error("context not canceled after Close()")
 	}
-	if !frame.CheckInterrupt() {
-		t.Errorf("CheckInterrupt() returned false after cancellation")
-	}
-
-	// Call release with nil directly to cover tracker release nil check
-	asyncCallStateTrackerPool.release(nil)
 }
