@@ -68,6 +68,11 @@ type FunctionOp func(...ref.Val) ref.Val
 
 // AsyncOp is a function that accepts zero or more arguments and produces
 // a value or error asynchronously via a channel.
+//
+// AsyncOp is an internal interface intended for use by CEL to manage goroutines and
+// channels associated with async calls. For public API usage, use BlockingAsyncOp.
+// Implementers should listen for context cancellation on the provided context for
+// resource cleanup.
 type AsyncOp func(context.Context, ...ref.Val) <-chan ref.Val
 
 // BlockingAsyncOp is a function that accepts zero or more arguments and blocks until
