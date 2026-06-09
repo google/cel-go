@@ -669,9 +669,9 @@ func indexOfOffset(str, substr string, offset int64) (int64, error) {
 	}
 	runes := []rune(str)
 	if substr == "" {
-		// The empty string matches at the search offset, which must fall within the string.
+		// The empty string matches at the search offset, clamped to the end of the string.
 		if off > len(runes) {
-			return -1, nil
+			return int64(len(runes)), nil
 		}
 		return offset, nil
 	}
@@ -714,9 +714,9 @@ func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
 	}
 	runes := []rune(str)
 	if substr == "" {
-		// The empty string matches at the search offset, which must fall within the string.
+		// The empty string matches at the search offset, clamped to the end of the string.
 		if off > len(runes) {
-			return -1, nil
+			return int64(len(runes)), nil
 		}
 		return offset, nil
 	}
