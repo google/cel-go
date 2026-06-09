@@ -964,9 +964,11 @@ func (q *intQualifier) qualifyInternal(vars Activation, obj any, presenceTest, p
 		}
 	case map[int32]any:
 		isMap = true
-		obj, isKey := o[int32(i)]
-		if isKey {
-			return obj, true, nil
+		if i32 := int32(i); int64(i32) == i {
+			obj, isKey := o[i32]
+			if isKey {
+				return obj, true, nil
+			}
 		}
 	case map[int64]any:
 		isMap = true
@@ -1089,9 +1091,11 @@ func (q *uintQualifier) qualifyInternal(vars Activation, obj any, presenceTest, 
 			return obj, true, nil
 		}
 	case map[uint32]any:
-		obj, isKey := o[uint32(u)]
-		if isKey {
-			return obj, true, nil
+		if u32 := uint32(u); uint64(u32) == u {
+			obj, isKey := o[u32]
+			if isKey {
+				return obj, true, nil
+			}
 		}
 	case map[uint64]any:
 		obj, isKey := o[u]

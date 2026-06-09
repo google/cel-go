@@ -396,6 +396,36 @@ func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
 	}
 }
 
+func TestAttributesNarrowMapKeyQualifier(t *testing.T) {
+	reg := newTestRegistry(t)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
+	vars, _ := NewActivation(map[string]any{
+		"i32": map[int32]any{0: "zero"},
+		"u32": map[uint32]any{0: "zero"},
+	})
+
+	// An index outside the key type's range must not be truncated into a
+	// matching key. int32(1<<32) and uint32(1<<32) both wrap to 0.
+	i32 := attrs.AbsoluteAttribute(1, "i32")
+	i32.AddQualifier(makeQualifier(t, attrs, nil, 2, int64(1)<<32))
+	if out, err := i32.Resolve(vars); err == nil {
+		t.Errorf("i32[1<<32] got %v, wanted no such key error", out)
+	}
+
+	u32 := attrs.AbsoluteAttribute(3, "u32")
+	u32.AddQualifier(makeQualifier(t, attrs, nil, 4, uint64(1)<<32))
+	if out, err := u32.Resolve(vars); err == nil {
+		t.Errorf("u32[1<<32] got %v, wanted no such key error", out)
+	}
+
+	// In-range keys still resolve.
+	i32ok := attrs.AbsoluteAttribute(5, "i32")
+	i32ok.AddQualifier(makeQualifier(t, attrs, nil, 6, int64(0)))
+	if out, err := i32ok.Resolve(vars); err != nil || out != "zero" {
+		t.Errorf("i32[0] got (%v, %v), wanted (zero, nil)", out, err)
+	}
+}
+
 func TestAttributesOptional(t *testing.T) {
 	reg := newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 	cont, err := containers.NewContainer(containers.Name("ns"))
