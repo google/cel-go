@@ -122,11 +122,14 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 			return durationOf(d)
 		}
 	case TimestampType:
-		if t, err := time.Parse(time.RFC3339, s.Value().(string)); err == nil {
-			if t.Unix() < minUnixTime || t.Unix() > maxUnixTime {
-				return celErrTimestampOverflow
+		str := s.Value().(string)
+		if strictRFC3339Pattern.MatchString(str) {
+			if t, err := time.Parse(time.RFC3339, str); err == nil {
+				if t.Unix() < minUnixTime || t.Unix() > maxUnixTime {
+					return celErrTimestampOverflow
+				}
+				return timestampOf(t)
 			}
-			return timestampOf(t)
 		}
 	case StringType:
 		return s

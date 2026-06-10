@@ -163,6 +163,35 @@ func TestStringConvertToType(t *testing.T) {
 	}
 }
 
+func TestStringConvertToTimestampStrict(t *testing.T) {
+	valid := []string{
+		"2025-01-17T01:00:00.001Z",
+		"2025-01-01T12:34:56Z",
+		"2025-01-01T12:34:56.123456789Z",
+		"2025-01-01T12:34:56+05:30",
+		"2025-01-01T12:34:56-08:00",
+		"2025-01-01T12:34:56+14:00",
+	}
+	for _, s := range valid {
+		if IsError(String(s).ConvertToType(TimestampType)) {
+			t.Errorf("String(%q).ConvertToType(TimestampType) errored, wanted a timestamp", s)
+		}
+	}
+	// RFC 3339 violations that time.Parse accepts loosely.
+	invalid := []string{
+		"2025-01-17T01:00:00,001Z",       // ',' fractional separator
+		"2025-01-17T1:00:00Z",            // single-digit hour
+		"2025-01-17T01:5:00Z",            // single-digit minute
+		"2025-01-18T01:01:01.001+24:01",  // offset hour out of range
+		"2025-01-17T01:01:01.001+00:60",  // offset minute out of range
+	}
+	for _, s := range invalid {
+		if !IsError(String(s).ConvertToType(TimestampType)) {
+			t.Errorf("String(%q).ConvertToType(TimestampType) succeeded, wanted an error", s)
+		}
+	}
+}
+
 func TestStringEqual(t *testing.T) {
 	if !String("hello").Equal(String("hello")).(Bool) {
 		t.Error("Two equivalent strings were not equal")
