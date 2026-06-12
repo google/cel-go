@@ -396,6 +396,54 @@ func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
 	}
 }
 
+func TestAttributesNarrowMapKeyQualifier(t *testing.T) {
+	reg := newTestRegistry(t)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
+	vars, err := NewActivation(map[string]any{
+		"i32": map[int32]any{0: "zero"},
+		"u32": map[uint32]any{0: "zero"},
+	})
+	if err != nil {
+		t.Fatalf("NewActivation() failed: %v", err)
+	}
+	// An index outside the key type's range must not be truncated into a
+	// matching key. int32(1<<32) and uint32(1<<32) both wrap to 0.
+	tests := []struct {
+		varName string
+		qual    any
+		out     any
+		err     error
+	}{
+		{varName: "i32", qual: int64(1) << 32, err: errors.New("no such key: 4294967296")},
+		{varName: "u32", qual: uint64(1) << 32, err: errors.New("no such key: 4294967296")},
+		{varName: "i32", qual: int64(0), out: "zero"},
+		{varName: "u32", qual: uint64(0), out: "zero"},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			attr := attrs.AbsoluteAttribute(1, tc.varName)
+			attr.AddQualifier(makeQualifier(t, attrs, nil, 2, tc.qual))
+			out, err := attr.Resolve(vars)
+			if err != nil {
+				if tc.err == nil {
+					t.Fatalf("attr.Resolve() failed: %v", err)
+				}
+				if tc.err.Error() != err.Error() {
+					t.Fatalf("attr.Resolve() errored with %v, wanted error %v", err, tc.err)
+				}
+				return
+			}
+			if tc.err != nil {
+				t.Fatalf("attr.Resolve() got %v, wanted error %v", out, tc.err)
+			}
+			if out != tc.out {
+				t.Errorf("attr.Resolve() got %v, wanted %v", out, tc.out)
+			}
+		})
+	}
+}
+
 func TestAttributesOptional(t *testing.T) {
 	reg := newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 	cont, err := containers.NewContainer(containers.Name("ns"))
