@@ -16,11 +16,14 @@ package ext
 
 import (
 	"encoding/base64"
+	"fmt"
 	"math"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // Encoders returns a cel.EnvOption to configure extended functions for string, byte, and object
@@ -48,6 +51,16 @@ import (
 // Examples:
 //
 //	base64.encode(b'hello') // return b'aGVsbG8='
+//
+// # JSON.Encode
+//
+// Encodes a CEL value to a JSON string.
+//
+//	json.encode(<dyn>) -> <string>
+//
+// Examples:
+//
+//	json.encode({'hello': 'world'}) // return '{"hello":"world"}'
 func Encoders(options ...EncodersOption) cel.EnvOption {
 	l := &encoderLib{version: math.MaxUint32}
 	for _, o := range options {
@@ -89,6 +102,11 @@ func (*encoderLib) CompileOptions() []cel.EnvOption {
 					b := bytes.(types.Bytes)
 					return stringOrError(base64EncodeBytes([]byte(b)))
 				}))),
+		cel.Function("json.encode",
+			cel.Overload("json_encode_dyn", []*cel.Type{cel.DynType}, cel.StringType,
+				cel.UnaryBinding(func(val ref.Val) ref.Val {
+					return stringOrError(jsonEncodeValue(val))
+				}))),
 	}
 }
 
@@ -109,4 +127,20 @@ func base64DecodeString(str string) ([]byte, error) {
 
 func base64EncodeBytes(bytes []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(bytes), nil
+}
+
+func jsonEncodeValue(val ref.Val) (string, error) {
+	native, err := val.ConvertToNative(types.JSONValueType)
+	if err != nil {
+		return "", err
+	}
+	jsonValue, ok := native.(*structpb.Value)
+	if !ok {
+		return "", fmt.Errorf("cannot convert %T to JSON value", native)
+	}
+	jsonBytes, err := protojson.Marshal(jsonValue)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonBytes), nil
 }
