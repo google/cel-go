@@ -15,6 +15,7 @@
 package types
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -186,8 +187,14 @@ func TestStringConvertToTimestampStrict(t *testing.T) {
 		"2025-01-17T01:01:01.001+00:60",  // offset minute out of range
 	}
 	for _, s := range invalid {
-		if !IsError(String(s).ConvertToType(TimestampType)) {
+		out := String(s).ConvertToType(TimestampType)
+		if !IsError(out) {
 			t.Errorf("String(%q).ConvertToType(TimestampType) succeeded, wanted an error", s)
+			continue
+		}
+		want := fmt.Sprintf("invalid RFC 3339 timestamp %q", s)
+		if got := out.(*Err).String(); got != want {
+			t.Errorf("String(%q).ConvertToType(TimestampType) errored with %q, wanted %q", s, got, want)
 		}
 	}
 }

@@ -123,13 +123,14 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 		}
 	case TimestampType:
 		str := s.Value().(string)
-		if strictRFC3339Pattern.MatchString(str) {
-			if t, err := time.Parse(time.RFC3339, str); err == nil {
-				if t.Unix() < minUnixTime || t.Unix() > maxUnixTime {
-					return celErrTimestampOverflow
-				}
-				return timestampOf(t)
+		if !strictRFC3339Pattern.MatchString(str) {
+			return NewErr("invalid RFC 3339 timestamp %q", str)
+		}
+		if t, err := time.Parse(time.RFC3339, str); err == nil {
+			if t.Unix() < minUnixTime || t.Unix() > maxUnixTime {
+				return celErrTimestampOverflow
 			}
+			return timestampOf(t)
 		}
 	case StringType:
 		return s
