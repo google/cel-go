@@ -399,30 +399,48 @@ func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
 func TestAttributesNarrowMapKeyQualifier(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	vars, _ := NewActivation(map[string]any{
+	vars, err := NewActivation(map[string]any{
 		"i32": map[int32]any{0: "zero"},
 		"u32": map[uint32]any{0: "zero"},
 	})
-
+	if err != nil {
+		t.Fatalf("NewActivation() failed: %v", err)
+	}
 	// An index outside the key type's range must not be truncated into a
 	// matching key. int32(1<<32) and uint32(1<<32) both wrap to 0.
-	i32 := attrs.AbsoluteAttribute(1, "i32")
-	i32.AddQualifier(makeQualifier(t, attrs, nil, 2, int64(1)<<32))
-	if out, err := i32.Resolve(vars); err == nil {
-		t.Errorf("i32[1<<32] got %v, wanted no such key error", out)
+	tests := []struct {
+		varName string
+		qual    any
+		out     any
+		err     error
+	}{
+		{varName: "i32", qual: int64(1) << 32, err: errors.New("no such key: 4294967296")},
+		{varName: "u32", qual: uint64(1) << 32, err: errors.New("no such key: 4294967296")},
+		{varName: "i32", qual: int64(0), out: "zero"},
+		{varName: "u32", qual: uint64(0), out: "zero"},
 	}
-
-	u32 := attrs.AbsoluteAttribute(3, "u32")
-	u32.AddQualifier(makeQualifier(t, attrs, nil, 4, uint64(1)<<32))
-	if out, err := u32.Resolve(vars); err == nil {
-		t.Errorf("u32[1<<32] got %v, wanted no such key error", out)
-	}
-
-	// In-range keys still resolve.
-	i32ok := attrs.AbsoluteAttribute(5, "i32")
-	i32ok.AddQualifier(makeQualifier(t, attrs, nil, 6, int64(0)))
-	if out, err := i32ok.Resolve(vars); err != nil || out != "zero" {
-		t.Errorf("i32[0] got (%v, %v), wanted (zero, nil)", out, err)
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			attr := attrs.AbsoluteAttribute(1, tc.varName)
+			attr.AddQualifier(makeQualifier(t, attrs, nil, 2, tc.qual))
+			out, err := attr.Resolve(vars)
+			if err != nil {
+				if tc.err == nil {
+					t.Fatalf("attr.Resolve() failed: %v", err)
+				}
+				if tc.err.Error() != err.Error() {
+					t.Fatalf("attr.Resolve() errored with %v, wanted error %v", err, tc.err)
+				}
+				return
+			}
+			if tc.err != nil {
+				t.Fatalf("attr.Resolve() got %v, wanted error %v", out, tc.err)
+			}
+			if out != tc.out {
+				t.Errorf("attr.Resolve() got %v, wanted %v", out, tc.out)
+			}
+		})
 	}
 }
 
