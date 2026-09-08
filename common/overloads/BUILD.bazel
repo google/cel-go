@@ -7,8 +7,7 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "overloads.go",
-    ],
+    srcs = ["alias.go"],
     importpath = "github.com/google/cel-go/common/overloads",
+    deps = ["@dev_cel_cel_go//common/overloads:go_default_library"],
 )

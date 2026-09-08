@@ -1,5 +1,17 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
+
+# gazelle:prefix github.com/google/cel-go
+# gazelle:exclude codelab
+# gazelle:exclude conformance
+# gazelle:exclude examples
+# gazelle:exclude ext/security
+# gazelle:exclude policy
+# gazelle:exclude repl
+# gazelle:exclude tools
+gazelle(name = "gazelle")

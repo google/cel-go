@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 package(
     licenses = ["notice"],  # Apache 2.0
@@ -6,27 +6,11 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "bench.go",
-    ],
+    srcs = ["alias.go"],
     importpath = "github.com/google/cel-go/test/bench",
+    visibility = ["//visibility:public"],
     deps = [
-        "//cel:go_default_library",
-        "//ext:go_default_library",
-        "//common/types:go_default_library",
-        "//common/types/ref:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "bench_test.go",
-    ],
-    embed = [
-        ":go_default_library",
-    ],
-    deps = [
-        "//cel:go_default_library",
+        "@dev_cel_cel_go//cel:go_default_library",
+        "@dev_cel_cel_go//test/bench:go_default_library",
     ],
 )

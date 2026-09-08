@@ -15,25 +15,26 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(
-    default_visibility = ["//repl:__subpackages__"],
+    default_visibility = ["//visibility:public"],
     licenses = ["notice"],  # Apache 2.0
 )
 
 go_library(
     name = "go_default_library",
-    srcs = glob(["*.go"], exclude=["*_test.go"]),
-    data = glob(["*.tokens"]),
+    srcs = ["alias.go"],
     importpath = "github.com/google/cel-go/repl/parser",
     deps = [
         "@com_github_antlr4_go_antlr_v4//:go_default_library",
+        "@dev_cel_cel_go_repl//parser:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
-    srcs = ["commands_test.go"],
-    embed = [":go_default_library"],
+    size = "small",
+    srcs = ["alias_test.go"],
     deps = [
+        ":go_default_library",
         "@com_github_antlr4_go_antlr_v4//:go_default_library",
     ],
 )

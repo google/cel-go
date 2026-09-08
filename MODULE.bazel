@@ -37,15 +37,19 @@ bazel_dep(
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_license", version = "1.0.0")
 
-
 # local_path_override(
 #     module_name = "cel-spec",
 #     path = "../cel-spec",
 # )
 bazel_dep(
     name = "cel-spec",
-    version = "0.25.1",
-    repo_name = "dev_cel_expr",
+    version = "0.25.2",
+    repo_name = "cel_spec",
+)
+git_override(
+    module_name = "cel-spec",
+    commit = "ba58ae5007845f3a1279b488cdeb79645ce958bb",
+    remote = "https://github.com/cel-expr/cel-spec",
 )
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
@@ -59,9 +63,46 @@ go_deps.gazelle_default_attributes(
 )
 go_deps.gazelle_override(
     build_file_generation = "off",
+    directives = [
+        "gazelle:go_naming_convention go_default_library",
+    ],
     path = "cel.dev/expr",
 )
+go_deps.gazelle_override(
+    build_file_generation = "clean",
+    directives = [
+        "gazelle:go_naming_convention go_default_library",
+    ],
+    path = "cel.dev/cel-go/repl",
+)
+go_deps.gazelle_override(
+    build_file_generation = "clean",
+    directives = [
+        "gazelle:go_naming_convention go_default_library",
+    ],
+    path = "cel.dev/cel-go/tools",
+)
 go_deps.from_file(go_mod = "//:go.mod")
+go_deps.module(
+    path = "cel.dev/cel-go/ext/security",
+    sum = "h1:Lf8SJ8Pe6YYNZ9CuUNOlVChbOgY0WwN4u/ftsq8e+Zo=",
+    version = "v0.32.0",
+)
+go_deps.module(
+    path = "cel.dev/cel-go/policy",
+    sum = "h1:DaDH8kpn3yd+4mILVKtBl0TuIlIjnpKlYv8/8HYtfAI=",
+    version = "v0.32.0",
+)
+go_deps.module(
+    path = "cel.dev/cel-go/repl",
+    sum = "h1:zMDPKL+o26JLReFRhNjve7F4OOM2UZCDf4I+gSck80o=",
+    version = "v0.32.0",
+)
+go_deps.module(
+    path = "cel.dev/cel-go/tools",
+    sum = "h1:AuUlxpsgBTXIsGM+kwdKI9jP2MfeF0oov4suFqpy7/w=",
+    version = "v0.32.0",
+)
 go_deps.module(
     path = "github.com/chzyer/readline",
     sum = "h1:upd/6fQk4src78LMRzh5vItIt361/o4uq553V8B5sGI=",
@@ -77,6 +118,12 @@ use_repo(
     "com_github_antlr4_go_antlr_v4",
     "com_github_chzyer_readline",
     "com_github_google_go_cmp",
+    "dev_cel_cel_go",
+    "dev_cel_cel_go_ext_security",
+    "dev_cel_cel_go_policy",
+    "dev_cel_cel_go_repl",
+    "dev_cel_cel_go_tools",
+    "dev_cel_expr",
     "in_yaml_go_yaml_v3",
     "org_golang_google_genproto_googleapis_api",
     "org_golang_google_genproto_googleapis_rpc",
