@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // This file contains code that demonstrates common CEL features.
-// This code is intended for use with the CEL Codelab: go/cel-codelab-go
+// This code is intended for use with the CEL Codelab: https://codelabs.developers.google.com/codelabs/cel-go/
 package main
 
 import (
