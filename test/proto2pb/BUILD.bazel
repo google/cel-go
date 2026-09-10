@@ -19,21 +19,9 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "test_all_types.pb.go",
-        "test_extensions.pb.go",
-    ],
+    srcs = ["alias.go"],
     importpath = "github.com/google/cel-go/test/proto2pb",
-    deps = [
-        "@org_golang_google_protobuf//proto:go_default_library",
-        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
-        "@org_golang_google_protobuf//runtime/protoimpl:go_default_library",
-        "@org_golang_google_protobuf//types/known/anypb:go_default_library",
-        "@org_golang_google_protobuf//types/known/durationpb:go_default_library",
-        "@org_golang_google_protobuf//types/known/structpb:go_default_library",
-        "@org_golang_google_protobuf//types/known/timestamppb:go_default_library",
-        "@org_golang_google_protobuf//types/known/wrapperspb:go_default_library",
-    ],
+    deps = [":test_all_types_go_proto"],
 )
 
 proto_library(
@@ -59,9 +47,21 @@ proto_library(
 
 go_proto_library(
     name = "test_all_types_go_proto",
-    importpath = "github.com/google/cel-go/test/proto2pb",
-    protos = [
-        ":test_all_types_proto",
-        ":test_extensions_proto",
+    importpath = "cel.dev/cel-go/test/proto2pb",
+    proto = ":proto2pb_proto",
+)
+
+proto_library(
+    name = "proto2pb_proto",
+    srcs = [
+        "test_all_types.proto",
+        "test_extensions.proto",
+    ],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:struct_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )

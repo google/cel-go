@@ -13,7 +13,6 @@
 # limitations under the License.
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
-load("//test:cel_go_test.bzl", "cel_go_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -22,79 +21,22 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "test_coverage_reporter.go",
-        "test_runner.go",
-    ],
+    srcs = ["alias.go"],
     importpath = "github.com/google/cel-go/tools/celtest",
     deps = [
-        "//cel:go_default_library",
-        "//common/ast:go_default_library",
-        "//common/operators:go_default_library",
-        "//common/types:go_default_library",
-        "//common/types/ref:go_default_library",
-        "//common/env:go_default_library",
-        "//common/debug:go_default_library",
-        "//interpreter:go_default_library",
-        "//parser:go_default_library",
-        "//test:go_default_library",
         "//tools/compiler:go_default_library",
-        "@com_github_google_go_cmp//cmp:go_default_library",
-        "@dev_cel_expr//:expr",
-        "@dev_cel_expr//conformance/test:go_default_library",
-        "@in_yaml_go_yaml_v3//:go_default_library",
-        "@io_bazel_rules_go//go/runfiles",
-        "@org_golang_google_genproto_googleapis_api//expr/v1alpha1:go_default_library",
-        "@org_golang_google_protobuf//encoding/prototext:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",
-        "@org_golang_google_protobuf//reflect/protodesc:go_default_library",
-        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
-        "@org_golang_google_protobuf//reflect/protoregistry:go_default_library",
-        "@org_golang_google_protobuf//testing/protocmp:go_default_library",
+        "@dev_cel_cel_go//cel:go_default_library",
+        "@dev_cel_cel_go//common/types/ref:go_default_library",
+        "@dev_cel_cel_go_tools//celtest:go_default_library",
         "@org_golang_google_protobuf//types/descriptorpb:go_default_library",
-        "@org_golang_google_protobuf//types/dynamicpb:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = [
-        "test_coverage_reporter_test.go",
-        "test_runner_test.go",
-    ],
-    data = [
-        ":testdata",
-        "//policy:testdata",
-    ],
-    embed = [":go_default_library"],
+    srcs = ["alias_test.go"],
     deps = [
-        "//cel:go_default_library",
-        "//common/ast:go_default_library",
-        "//common/decls:go_default_library",
-        "//common/types:go_default_library",
-        "//common/types/ref:go_default_library",
-        "//policy:go_default_library",
-        "//test:go_default_library",
-        "//tools/compiler:go_default_library",
-        "@dev_cel_expr//conformance/test:go_default_library",
-        "@in_yaml_go_yaml_v3//:go_default_library",
-    ]
-)
-
-filegroup(
-    name = "testdata",
-    srcs = glob(["testdata/**"]),
-)
-
-# trigger cel_go_test with resource files located under test_data_path
-cel_go_test(
-    name = "pb_policy",
-    cel_expr = "testdata/pb/policy.yaml",
-    config = "testdata/pb/config.yaml",
-    enable_coverage = True,
-    file_descriptor_set = "//policy:test_all_types_fds",
-    test_data_path = "//policy",
-    test_src = "//policy/test:cel_test_runner.go",
-    test_suite = "testdata/pb/tests.yaml",
+        ":go_default_library",
+    ],
 )

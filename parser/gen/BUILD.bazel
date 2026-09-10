@@ -7,20 +7,10 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "cel_base_listener.go",
-        "cel_base_visitor.go",
-        "cel_lexer.go",
-        "cel_listener.go",
-        "cel_parser.go",
-        "cel_visitor.go",
-    ],
-    data = [
-        "CEL.tokens",
-        "CELLexer.tokens",
-    ],
+    srcs = ["alias.go"],
     importpath = "github.com/google/cel-go/parser/gen",
     deps = [
         "@com_github_antlr4_go_antlr_v4//:go_default_library",
+        "@dev_cel_cel_go//parser/gen:go_default_library",
     ],
 )
